@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pHinder"
+version = "7.0.0"
+description = "Ionizable-residue network and surface analysis for protein structures."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Daniel G. Isom", email = "disom@miami.edu" }]
+keywords = ["protein structure", "ionizable residues", "convex hull", "surface", "PDB"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = ["isomlab", "openpyxl"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+phinder = "pHinder.command_line:main"
+
+[project.gui-scripts]
+phinder-gui = "pHinder.gui.phinder_main_gui:main"
+
+[project.urls]
+Homepage = "https://github.com/dangerisom/pHinder"
+Repository = "https://github.com/dangerisom/pHinder"
+Issues = "https://github.com/dangerisom/pHinder/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

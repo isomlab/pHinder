@@ -1,0 +1,24 @@
+# macOS Finder metadata
+.DS_Store
+
+# Python bytecode / build artifacts
+__pycache__/
+*.pyc
+*.pyo
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# --- Secrets: never commit credentials -----------------------------------
+*token*.txt
+*tokens*.txt
+*secret*
+*credential*
+*.pem
+.env
+.env.*
+personal_access_token*
+githubTokens*
