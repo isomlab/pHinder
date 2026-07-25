@@ -3,7 +3,7 @@
 Ionizable-residue network and surface analysis for protein structures.
 
 This is pHinder packaged as an installable tool, **re-based onto the shared
-[`isomlab`](https://github.com/dangerisom/isomlab) core**: the computational-geometry
+[`isomlab`](https://github.com/isomlab/isomlab) core**: the computational-geometry
 and PDB/mmCIF routines it used to bundle now come from `isomlab` as a dependency,
 so only the pHinder algorithm, GUI, and CLI live in this repo.
 

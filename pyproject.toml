@@ -29,9 +29,9 @@ phinder = "pHinder.command_line:main"
 phinder-gui = "pHinder.gui.phinder_main_gui:main"
 
 [project.urls]
-Homepage = "https://github.com/dangerisom/pHinder"
-Repository = "https://github.com/dangerisom/pHinder"
-Issues = "https://github.com/dangerisom/pHinder/issues"
+Homepage = "https://github.com/isomlab/pHinder"
+Repository = "https://github.com/isomlab/pHinder"
+Issues = "https://github.com/isomlab/pHinder/issues"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
