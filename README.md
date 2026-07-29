@@ -9,13 +9,23 @@ so only the pHinder algorithm, GUI, and CLI live in this repo.
 
 ## Install
 
+Install from GitHub — neither package is on PyPI. The core comes first:
+
 ```bash
-pip install isomlab pHinder        # once published
-# or from checkouts (install isomlab first):
+pip install git+https://github.com/isomlab/isomlab
+pip install git+https://github.com/isomlab/pHinder
+```
+
+Or from local checkouts:
+
+```bash
 pip install -e ../isomlab && pip install -e .
 ```
 
 Requires Python ≥ 3.9, `isomlab`, and `openpyxl`.
+
+> **Do not run `pip install pHinder`.** That name belongs to an unrelated project on
+> PyPI; it will not install this tool. Install from this repository instead.
 
 ## Use
 
