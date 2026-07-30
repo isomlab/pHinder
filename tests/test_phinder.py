@@ -26,12 +26,12 @@ def test_imports(name):
     assert importlib.import_module(name) is not None
 
 
-def test_algorithm_pulls_isomlab():
-    # pHinder_7_0 re-exports the isomlab geometry/structure symbols it uses.
+def test_algorithm_pulls_geometry_and_structure():
+    # pHinder_7_0 re-exports the geometry/structure symbols it uses.
     mod = importlib.import_module("pHinder.pHinder_7_0")
     assert hasattr(mod, "pHinder")          # main algorithm entry class/func
-    assert hasattr(mod, "convexHull4D")     # came via isomlab.geometry.convexHull4D
-    assert hasattr(mod, "PDBfile")          # came via isomlab.structure.pdbFile
+    assert hasattr(mod, "convexHull4D")     # came via pHinder.geometry.convexHull4D
+    assert hasattr(mod, "PDBfile")          # came via pHinder._vendor.pdbFile
 
 
 def test_cli_entrypoint_exists():

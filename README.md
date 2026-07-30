@@ -2,27 +2,25 @@
 
 Ionizable-residue network and surface analysis for protein structures.
 
-This is pHinder packaged as an installable tool, **re-based onto the shared
-[`isomlab`](https://github.com/isomlab/isomlab) core**: the computational-geometry
-and PDB/mmCIF routines it used to bundle now come from `isomlab` as a dependency,
-so only the pHinder algorithm, GUI, and CLI live in this repo.
+This is pHinder packaged as an installable tool. It is **self-contained**: the
+algorithm, GUI, CLI, and all the computational geometry it needs live in this
+repository, so installing it requires no other lab repo.
 
 ## Install
 
-Install from GitHub — neither package is on PyPI. The core comes first:
+Install from GitHub — pHinder is not on PyPI:
 
 ```bash
-pip install git+https://github.com/isomlab/isomlab
 pip install git+https://github.com/isomlab/pHinder
 ```
 
-Or from local checkouts:
+Or from a local checkout:
 
 ```bash
-pip install -e ../isomlab && pip install -e .
+pip install -e .
 ```
 
-Requires Python ≥ 3.9, `isomlab`, and `openpyxl`.
+Requires Python ≥ 3.9, `numpy`, and `openpyxl`.
 
 > **Do not run `pip install pHinder`.** That name belongs to an unrelated project on
 > PyPI; it will not install this tool. Install from this repository instead.
@@ -38,18 +36,39 @@ phinder-gui             # Tkinter GUI
 
 ```
 pHinder/
-├── pHinder_7_0.py      the algorithm (imports geometry/structure from isomlab)
+├── pHinder_7_0.py      the algorithm
 ├── command_line.py     CLI entry point  ->  `phinder`
 ├── single_script.py    standalone batch script
-└── gui/                Tkinter front-end ->  `phinder-gui`
+├── gui/                Tkinter front-end ->  `phinder-gui`
+├── geometry/           convex hulls, spheres, network walks (pHinder's own)
+├── structure/          surface construction and structure output
+└── _vendor/            shared with isomlab: compGeometry, determinants, pdbFile
 ```
+
+## Shared code
+
+Three modules are shared with the rest of the lab and are **vendored** here rather
+than taken as a dependency, so that pHinder installs and archives as one unit:
+`compGeometry`, `determinants`, `pdbFile`.
+
+[`isomlab`](https://github.com/isomlab/isomlab) is their upstream home and remains the
+source of truth. Fix bugs there, then pull them in:
+
+```bash
+python tools/sync_vendor.py --from ../isomlab   # sync + restamp
+python tools/sync_vendor.py --check             # report drift only
+```
+
+`src/pHinder/_vendor/VENDOR.json` records the upstream commit and a SHA-256 per file,
+and `tests/test_vendor_integrity.py` fails if a vendored file is edited in place — the
+copies cannot silently diverge.
 
 ## Provenance
 
 Extracted from the legacy `pythonScripts/pHinder` source (active code only; the
 2012–2013 `z_archives` were dropped). Algorithm bodies are unchanged — only import
-statements were rewritten from bundled bare-module names to `isomlab.*` package
-paths. PDB and mmCIF parsing are both handled by `isomlab.structure.pdbFile`.
+statements were rewritten. PDB and mmCIF parsing are both handled by
+`pHinder._vendor.pdbFile`.
 
 ## License
 

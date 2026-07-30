@@ -1,20 +1,20 @@
 # Import dependencies here for enhanced performance.
 ####################################################
 # from pdbFile import PseudoAtom
-from isomlab.structure.pdbFile import PDBfile, PseudoAtom
+from pHinder._vendor.pdbFile import PDBfile, PseudoAtom
 from math import sqrt, exp, pi
 from copy import deepcopy
 from os import mkdir, sep, listdir
 from os.path import exists
 from shutil import rmtree
-from isomlab.geometry.convexHull3D import convexHull3D 
-from isomlab.geometry.convexHull4D import convexHull4D, Simplex1
-from isomlab.structure.pHinderSurface import calculateSurface, inLocalSurface, generateVirtualScreeningVertices
-from isomlab.geometry.goFo import *
-from isomlab.geometry.compGeometry import *
-from isomlab.geometry.sphere import Sphere
-from isomlab.geometry.minimizeNetworks import *
-from isomlab.structure.writeFunctions import *
+from pHinder.geometry.convexHull3D import convexHull3D 
+from pHinder.geometry.convexHull4D import convexHull4D, Simplex1
+from pHinder.structure.pHinderSurface import calculateSurface, inLocalSurface, generateVirtualScreeningVertices
+from pHinder.geometry.goFo import *
+from pHinder._vendor.compGeometry import *
+from pHinder.geometry.sphere import Sphere
+from pHinder.geometry.minimizeNetworks import *
+from pHinder.structure.writeFunctions import *
 import multiprocessing as mp
 import gzip
 import platform
@@ -2133,7 +2133,7 @@ class pHinder:
 						atomVertex = self.hetVertexDict[atomKey]
 						
 						# Expand the volume of the hetero-atom
-						from isomlab.geometry.sphere import Sphere
+						from pHinder.geometry.sphere import Sphere
 						print("hellow")
 						s = Sphere()
 						s.radius = 1.5 # Average van Der Waals radius
@@ -2184,7 +2184,7 @@ class pHinder:
 								atomVertex = self.hetVertexDict[atomKey]
 								
 								# Expand the volume of the hetero-atom
-								from isomlab.geometry.sphere import Sphere
+								from pHinder.geometry.sphere import Sphere
 								s = Sphere()
 								s.radius = 1.5 # Average van Der Waals radius
 								s.origin_x = atomVertex.x
@@ -3402,7 +3402,7 @@ class pHinder:
 					last_id = sorted(vertexDict)[-1]
 
 					if extend_sampling:
-						from isomlab.geometry.sphere import Sphere
+						from pHinder.geometry.sphere import Sphere
 						atom_serial = last_id + 1
 						extended_vertexList = []
 						for v in vertexList:
@@ -3513,7 +3513,7 @@ cmd.load_cgo(obj, 'cs_{i}_{self.chainString}')"""
 						last_id = sorted(vertexDict)[-1]
 
 						if extend_sampling:
-							from isomlab.geometry.sphere import Sphere
+							from pHinder.geometry.sphere import Sphere
 							atom_serial = last_id + 1
 							extended_vertexList = []
 							for v in vertexList:

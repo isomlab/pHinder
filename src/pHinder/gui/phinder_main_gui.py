@@ -52,9 +52,9 @@ def get_pdb_chains(path):
         pdb_file_name = path.split(sep)[-1]
         # Import appropriate PDB file handler
         if ".cif" in pdb_file_name:
-            from isomlab.structure.pdbFile import PDBfile 
+            from pHinder._vendor.pdbFile import PDBfile 
         else:
-            from isomlab.structure.pdbFile import PDBfile
+            from pHinder._vendor.pdbFile import PDBfile
         # Check if the file is compressed
         if ".gz" in pdb_file_name:
             pdb = PDBfile(pdb_file_path, pdb_file_name, zip_status=1)
