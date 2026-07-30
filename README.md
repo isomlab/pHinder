@@ -6,35 +6,42 @@ This is pHinder packaged as an installable tool. It is **self-contained**: the
 algorithm, GUI, CLI, and all the computational geometry it needs live in this
 repository, so installing it requires no other lab repo.
 
-## Install
+## Install & run
 
-**conda** (recommended — brings its own Python):
+**Most people: just use the launcher — no typing.**
+
+- **macOS:** in the `launchers` folder, double-click **`Launch pHinder.command`**
+- **Windows:** double-click **`launchers\Launch pHinder.bat`**
+
+The first launch sets everything up on its own (it needs [Miniforge](https://conda-forge.org/download/)
+— a free, one-time install; brand new to this? see the
+[install-from-scratch guide](docs/INSTALL.md)); after that it opens straight away.
+Step-by-step, including how to download the code: **[getting started](docs/getting_started.md)**.
+
+pHinder is a **public** repository, so nothing here needs a GitHub account.
+
+<details>
+<summary><b>Prefer the command line?</b> — conda or pip</summary>
 
 ```bash
-conda env create -f environment.yml     # from a checkout of this repo
+# conda (its Python includes the GUI toolkit):
+conda env create -f environment.yml
 conda activate pHinder
-```
+phinder --help       # or: phinder-gui
 
-**pip**, from GitHub — pHinder is not on PyPI:
+# or plain pip, from a clone (needs a Python that already has tkinter):
+pip install -e .
 
-```bash
+# or without cloning at all:
 pip install git+https://github.com/isomlab/pHinder
 ```
-
-Or from a local checkout:
-
-```bash
-pip install -e .
-```
-
-**No installing at all** — the double-click launchers in [`launchers/`](launchers) do the
-conda setup for you (install [Miniforge](https://conda-forge.org/download/) once, then
-double-click **Launch pHinder**: `.command` on Mac, `.bat` on Windows).
 
 Requires Python ≥ 3.9, `numpy`, and `openpyxl`. No other lab repository is needed.
 
 > **Do not run `pip install pHinder`.** That name belongs to an unrelated project on
 > PyPI; it will not install this tool. Install from this repository instead.
+
+</details>
 
 ## Use
 
