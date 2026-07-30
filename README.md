@@ -8,7 +8,14 @@ repository, so installing it requires no other lab repo.
 
 ## Install
 
-Install from GitHub — pHinder is not on PyPI:
+**conda** (recommended — brings its own Python):
+
+```bash
+conda env create -f environment.yml     # from a checkout of this repo
+conda activate pHinder
+```
+
+**pip**, from GitHub — pHinder is not on PyPI:
 
 ```bash
 pip install git+https://github.com/isomlab/pHinder
@@ -20,7 +27,11 @@ Or from a local checkout:
 pip install -e .
 ```
 
-Requires Python ≥ 3.9, `numpy`, and `openpyxl`.
+**No installing at all** — the double-click launchers in [`launchers/`](launchers) do the
+conda setup for you (install [Miniforge](https://conda-forge.org/download/) once, then
+double-click **Launch pHinder**: `.command` on Mac, `.bat` on Windows).
+
+Requires Python ≥ 3.9, `numpy`, and `openpyxl`. No other lab repository is needed.
 
 > **Do not run `pip install pHinder`.** That name belongs to an unrelated project on
 > PyPI; it will not install this tool. Install from this repository instead.

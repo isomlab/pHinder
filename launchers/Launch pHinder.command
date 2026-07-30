@@ -38,12 +38,6 @@ CONDA="$(find_conda)" || {
     pause_and_exit 1
 }
 
-if [ ! -d "$REPO/../isomlab" ]; then
-    echo "Note: '../isomlab' was not found next to this project — pHinder needs it."
-    echo "Clone the isomlab repo beside this folder, then run this again."
-    echo
-fi
-
 # Create the environment the first time only.
 if ! "$CONDA" env list | awk '{print $1}' | grep -qx "$ENV_NAME"; then
     echo "First-time setup: creating the '$ENV_NAME' environment (a few minutes)…"

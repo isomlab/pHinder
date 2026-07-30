@@ -1,11 +1,20 @@
 name: pHinder
-# Expects the isomlab repo checked out next to this one (../isomlab).
+# One-command install: Python, pHinder, and its dependencies.
+#
+#   # from the pHinder folder:
+#   conda env create -f environment.yml
+#   conda activate pHinder
+#   phinder-gui               # or: phinder --help
+#
+# (The double-click launchers in launchers/ do this for you.)
+#
+# pHinder is self-contained -- no other lab repository is needed.
 channels:
   - conda-forge
 dependencies:
   - python >=3.9
+  - numpy
   - openpyxl
   - pip
   - pip:
-      - -e ../isomlab
-      - -e .
+      - -e .            # this package -> the phinder / phinder-gui commands

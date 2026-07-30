@@ -48,3 +48,20 @@ def test_no_isomlab_imports_remain():
         if ".egg-info" not in p.parts and IMPORTS_ISOMLAB.search(p.read_text())
     ]
     assert not offenders, f"stale isomlab imports in: {offenders}"
+
+
+def test_install_files_need_no_sibling_checkout():
+    """environment.yml and the launchers must not require a second lab repo.
+
+    The vendoring only pays off if *installing* is self-contained too. This is the
+    gap that shipped once: src/ was clean while environment.yml still had
+    `-e ../isomlab`, so `conda env create` failed for anyone without a sibling
+    checkout. README may mention ../isomlab -- that is the sync-tool instruction.
+    """
+    root = pathlib.Path(__file__).resolve().parent.parent
+    targets = [root / "environment.yml", *(root / "launchers").iterdir()]
+    offenders = [
+        t.name for t in targets
+        if t.is_file() and "isomlab" in t.read_text()
+    ]
+    assert not offenders, f"install files still reference isomlab: {offenders}"
