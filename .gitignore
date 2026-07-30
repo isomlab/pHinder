@@ -22,3 +22,6 @@ venv/
 .env.*
 personal_access_token*
 githubTokens*
+
+# runtime artifact from running the CLI
+phinder_run.log
