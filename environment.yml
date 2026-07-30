@@ -1,9 +1,9 @@
-name: pHinder
+name: phinder
 # One-command install: Python, pHinder, and its dependencies.
 #
 #   # from the pHinder folder:
 #   conda env create -f environment.yml
-#   conda activate pHinder
+#   conda activate phinder
 #   phinder-gui               # or: phinder --help
 #
 # (The double-click launchers in launchers/ do this for you.)

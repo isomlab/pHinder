@@ -26,7 +26,7 @@ pHinder is a **public** repository, so nothing here needs a GitHub account.
 ```bash
 # conda (its Python includes the GUI toolkit):
 conda env create -f environment.yml
-conda activate pHinder
+conda activate phinder
 phinder --help       # or: phinder-gui
 
 # or plain pip, from a clone (needs a Python that already has tkinter):

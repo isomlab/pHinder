@@ -55,7 +55,7 @@ Either way you now have a pHinder folder on your computer.
 - **Windows:** `Launch pHinder.bat`
 
 That's it. The **first** launch takes a few minutes: it builds a private, isolated
-conda environment (named `pHinder`) containing Python and everything the app needs,
+conda environment (named `phinder`) containing Python and everything the app needs,
 then opens the window. **Every launch after that opens straight away.**
 
 You don't need to type anything, and it won't touch any other Python on your
@@ -81,7 +81,7 @@ If you'd rather work in a Terminal — for batch jobs or scripting — activate 
 environment the launcher built and use the command line:
 
 ```bash
-conda activate pHinder
+conda activate phinder
 phinder --help                       # see all options
 phinder structure.pdb --chains A --sidechain-classification
 ```
@@ -102,7 +102,7 @@ next time you launch — no reinstall. If a release changes the dependencies, de
 the environment and let the launcher rebuild it:
 
 ```bash
-conda env remove -n pHinder
+conda env remove -n phinder
 ```
 
 ---
@@ -114,13 +114,13 @@ conda env remove -n pHinder
   `source ~/miniforge3/bin/activate` once.
 - **The launcher says it can't find conda** — same cause. Install conda from the
   [install-from-scratch guide](INSTALL.md), then double-click the launcher again.
-- **"phinder: command not found"** — you probably forgot `conda activate pHinder`
+- **"phinder: command not found"** — you probably forgot `conda activate phinder`
   first. Run it, then try again.
 - **The window doesn't appear** — use the **conda** install above; its Python
   includes the Tk graphics toolkit the GUI needs. A plain system-Python `pip install`
   can be missing it.
 - **Setup failed partway through** — remove the half-built environment with
-  `conda env remove -n pHinder` and double-click the launcher again.
+  `conda env remove -n phinder` and double-click the launcher again.
 
 Stuck? Send Dan the exact command you ran and the message you got.
 

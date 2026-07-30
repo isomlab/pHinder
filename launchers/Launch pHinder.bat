@@ -3,7 +3,7 @@ REM pHinder - double-click launcher (Windows).
 REM First run creates the 'pHinder' conda environment; later runs just open the app.
 REM Requirement: install Miniforge once: https://conda-forge.org/download/
 setlocal
-set ENV_NAME=pHinder
+set ENV_NAME=phinder
 set HERE=%~dp0
 set REPO=%HERE%..
 

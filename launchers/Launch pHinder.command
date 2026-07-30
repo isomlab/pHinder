@@ -8,7 +8,7 @@
 # Requirement: install Miniforge once (a normal clickable installer):
 #   https://conda-forge.org/download/
 
-ENV_NAME="pHinder"
+ENV_NAME="phinder"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"   # this script lives in <repo>/launchers/
 
