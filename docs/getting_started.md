@@ -1,78 +1,46 @@
 # Getting started with pHinder
 
-This guide gets pHinder running on your computer. You do **not** need to know how to
-code — follow the steps and copy-paste where asked. It takes about 10 minutes, once.
-After that, launching it is a double-click.
+pHinder analyses ionizable-residue networks and molecular surfaces in protein structures.
 
-> On Windows everything below works the same — use the **Miniforge Prompt** app
-> wherever this says "Terminal", and see the Windows note in each step.
+Everything the lab tools have in common — downloading, launching, updating, and what
+to do when something goes wrong — is on one shared page: **[Getting started with a lab
+tool](https://dangerisom.github.io/Isom-Lab/getting-started/)**. This guide covers
+only what is specific to pHinder.
 
 ---
 
 ## Before you start
 
-This guide assumes your computer already has **conda** (Miniforge, Miniconda, or
-Anaconda) installed.
+Your computer needs **conda** (Miniforge, Miniconda, or Anaconda).
 
-> **First time? Never installed conda?** Do the one-time
-> **[install-from-scratch guide → INSTALL.md](INSTALL.md)** first, then come back here.
-
----
-
-## Step 1 — Get the code
-
-pHinder is a **public** repository, so no account or password is needed. Pick
-whichever way you prefer.
-
-**Option A — Download ZIP (fastest, nothing to install).**
-1. Open **[github.com/isomlab/pHinder](https://github.com/isomlab/pHinder)**.
-2. Click the green **`Code ▾`** button → **Download ZIP**.
-3. Double-click the downloaded file to unzip it. You now have a folder called
-   **`pHinder-main`** — move it somewhere easy, like your **Documents**.
-
-**Option B — GitHub Desktop (best if you'll update often).**
-1. Open GitHub Desktop → **File ▸ Clone repository… ▸ URL**.
-2. Paste `https://github.com/isomlab/pHinder` → pick a folder (e.g. Documents) →
-   **Clone**. This makes a folder called **`pHinder`**.
-
-**Option C — `git clone` in Terminal.** Because the repo is public this just works,
-with no password:
-
-```bash
-cd ~/Documents
-git clone https://github.com/isomlab/pHinder.git
-```
-
-Either way you now have a pHinder folder on your computer.
+> **First time on this computer?** Do the one-time **[Setting up your
+> computer](https://dangerisom.github.io/Isom-Lab/setup/)** first, then come back here.
+> pHinder's own install notes are in **[INSTALL.md](INSTALL.md)**.
 
 ---
 
-## Step 2 — Launch it
+## Get it and launch it
 
-**Open the `launchers` folder inside your pHinder folder and double-click:**
+**1. Download it** from **[github.com/isomlab/pHinder](https://github.com/isomlab/pHinder)**.
+   It is **public**, so no account or password is needed: **Download ZIP**,
+   **GitHub Desktop**, or `git clone`. Step by step:
+   **[Get the code](https://dangerisom.github.io/Isom-Lab/getting-started/#public-tools)**.
+
+**2. Open the `launchers` folder inside it and double-click:**
 
 - **Mac:** `Launch pHinder.command`
 - **Windows:** `Launch pHinder.bat`
 
-That's it. The **first** launch takes a few minutes: it builds a private, isolated
-conda environment (named `phinder`) containing Python and everything the app needs,
-then opens the window. **Every launch after that opens straight away.**
+The **first** launch takes a few minutes while it builds a private, isolated conda
+environment named `phinder` containing Python and everything the app needs. Every
+launch after that opens straight away. You don't need to type anything.
 
-You don't need to type anything, and it won't touch any other Python on your
-computer.
-
-> **Mac, first time only:** if macOS says *"cannot be opened because it is from an
-> unidentified developer"*, right-click (or Control-click) the `.command` file and
-> choose **Open**, then **Open** again in the dialog. You only do this once.
-
-> **Mac, if double-clicking does nothing:** the file may have lost its executable
-> flag in transit (common after unzipping). In Terminal, run
-> `chmod +x ~/Documents/pHinder/launchers/"Launch pHinder.command"` once, then
-> double-click again.
+If macOS blocks the file, or double-clicking does nothing, see **[Launch
+it](https://dangerisom.github.io/Isom-Lab/getting-started/#launch-it)**.
 
 ---
 
-## Step 3 — Use it
+## Use it
 
 The launcher opens the graphical interface. From there you load a structure, pick a
 residue set, and run the topology / surface / network calculations.
@@ -92,14 +60,10 @@ phinder structure.pdb --chains A --sidechain-classification
 
 ## Updating later
 
-- **GitHub Desktop (Option B):** open it and click **Fetch / Pull origin**.
-- **`git clone` (Option C):** `cd ~/Documents/pHinder && git pull`.
-- **Downloaded the ZIP (Option A):** download a fresh ZIP and replace the old
-  folder's contents (keep the same folder name and location).
-
-The environment installs the code in "editable" mode, so an update takes effect the
-next time you launch — no reinstall. If a release changes the dependencies, delete
-the environment and let the launcher rebuild it:
+Refresh the folder the way you got it — see **[Updating
+later](https://dangerisom.github.io/Isom-Lab/getting-started/#updating-later)**. If a
+release changes what the tool depends on, delete its environment and let the launcher
+rebuild it on the next double-click:
 
 ```bash
 conda env remove -n phinder
@@ -109,43 +73,21 @@ conda env remove -n phinder
 
 ## If something goes wrong
 
-- **"conda: command not found"** — close and reopen Terminal after installing conda
-  (the installer needs a fresh window). On Mac, if it still isn't found, run
-  `source ~/miniforge3/bin/activate` once.
-- **The launcher says it can't find conda** — same cause. Install conda from the
-  [install-from-scratch guide](INSTALL.md), then double-click the launcher again.
-- **"phinder: command not found"** — you probably forgot `conda activate phinder`
-  first. Run it, then try again.
-- **The window doesn't appear** — use the **conda** install above; its Python
-  includes the Tk graphics toolkit the GUI needs. A plain system-Python `pip install`
-  can be missing it.
-- **Setup failed partway through** — remove the half-built environment with
-  `conda env remove -n phinder` and double-click the launcher again.
+The usual problems are on the shared page: **[If something goes
+wrong](https://dangerisom.github.io/Isom-Lab/getting-started/#if-something-goes-wrong)**.
 
-Stuck? Send Dan the exact command you ran and the message you got.
+Stuck? Send Dan (<a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#100;&#105;&#115;&#111;&#109;&#64;&#109;&#105;&#97;&#109;&#105;&#46;&#101;&#100;&#117;">&#100;&#105;&#115;&#111;&#109;<span>&#64;</span>&#109;&#105;&#97;&#109;&#105;<span>&#46;</span>&#101;&#100;&#117;</a>) the exact command you ran and the message you got.
 
 ---
 
-## Alternative: plain `pip` (if you don't use conda)
+## Alternative: plain pip
 
-Conda is recommended because it guarantees the GUI toolkit is present. If you'd
-rather use `pip`, from inside the pHinder folder:
+The general recipe is on the shared page: **[Alternative: plain
+pip](https://dangerisom.github.io/Isom-Lab/getting-started/#alternative-plain-pip)**.
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e .
-phinder --help
-```
-
-Or without cloning at all:
+**Do not run `pip install pHinder`.** That name belongs to an unrelated project on
+PyPI and will not install this tool. Install from the GitHub address instead:
 
 ```bash
 pip install git+https://github.com/isomlab/pHinder
 ```
-
-This only works if your Python includes **tkinter**: macOS's built-in `python3`
-does; Homebrew Python needs `brew install python-tk`; conda always does.
-
-> **Do not run `pip install pHinder`.** That name belongs to an unrelated project on
-> PyPI and will not install this tool.
