@@ -616,3 +616,36 @@ def test_dependent_calculations_pull_in_their_prerequisites():
         body = runner and __import__(
             "pHinder.gui.help_text", fromlist=["x"]).CALCULATIONS[key][1].lower()
         assert "runs the networks" in body, f"{key} help should say what it runs for you"
+
+
+def test_interface_chain_check_covers_every_selection():
+    """Interface classification compares chains, so one chain gives it nothing.
+
+    Either offer every chain the structure has, or say plainly that it has only
+    one -- never run it silently against a single chain.
+    """
+    from pHinder.gui.app import interface_chain_check
+    from pHinder.gui.runner import GROUP_CHAINS
+
+    two_available = {"A": 1, "B": 0, GROUP_CHAINS: 0}
+    both_selected = {"A": 1, "B": 1, GROUP_CHAINS: 0}
+    one_only = {"A": 1, GROUP_CHAINS: 1}
+
+    # Not asking for interfaces: never interfere.
+    assert interface_chain_check(two_available, False) is None
+    assert interface_chain_check(one_only, False) is None
+
+    # Two or more chains chosen: fine.
+    assert interface_chain_check(both_selected, True) is None
+
+    # One chosen but more exist: offer them.
+    assert interface_chain_check(two_available, True) == "offer_all"
+
+    # The structure genuinely has one chain: nothing to offer.
+    assert interface_chain_check(one_only, True) == "too_few"
+
+    # "Group Chains" is an option, not a chain, and must not count as the second.
+    assert interface_chain_check({"A": 1, GROUP_CHAINS: 1}, True) == "too_few"
+
+    # Nothing selected at all still counts as too few to compare.
+    assert interface_chain_check({"A": 0, "B": 0, GROUP_CHAINS: 0}, True) == "offer_all"

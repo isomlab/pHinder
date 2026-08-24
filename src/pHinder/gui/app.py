@@ -71,6 +71,25 @@ TAB_FOR_GROUP = {
 }
 
 
+def interface_chain_check(chains, interface_selected):
+    """What to do about the chain selection before an interface run.
+
+    Interface classification compares one chain against another, so a single
+    chain gives it nothing to work with. Returns one of:
+
+      None        -- fine, go ahead
+      "offer_all" -- one chain picked but the structure has more; offer them
+      "too_few"   -- the structure itself only has one chain
+    """
+    if not interface_selected:
+        return None
+    available = [c for c in chains if c != GROUP_CHAINS]
+    selected = [c for c in available if chains[c]]
+    if len(selected) >= 2:
+        return None
+    return "offer_all" if len(available) >= 2 else "too_few"
+
+
 def prettify(key):
     """CONSTANT_CASE / camelCase -> a sentence-case label.
 
@@ -403,8 +422,45 @@ class PHinderApp(tk.Tk):
             return "Tick at least one calculation on the Calculations tab."
         return None
 
+    def _check_interface_chains(self, results):
+        """Warn -- and offer to use every chain -- before an interface run.
+
+        Returns True to carry on, False to abort.
+        """
+        interface = self.vars.get("calculation_options", {}).get("interfaceClassification")
+        verdict = interface_chain_check(results["chains"], bool(interface and interface.get()))
+        if verdict is None:
+            return True
+
+        available = [c for c in results["chains"] if c != GROUP_CHAINS]
+        if verdict == "too_few":
+            messagebox.showwarning(
+                "Interface classification needs two chains",
+                f"Interface classification compares one chain against another, but "
+                f"{available[0] if available else 'this structure'} is the only chain "
+                f"in this structure.\n\nUntick it, or choose a structure with more "
+                f"than one chain.")
+            return False
+
+        use_all = messagebox.askyesno(
+            "Only one chain selected",
+            f"Interface classification compares one chain against another, and only "
+            f"one chain is selected.\n\nUse all {len(available)} chains "
+            f"({', '.join(available)}) instead?",
+            default="yes")
+        if not use_all:
+            return False
+        for name, var in self.file_widget.option_vars.items():
+            if name != GROUP_CHAINS:
+                var.set(1)
+        return True
+
     def _start_run(self):
         results = self.collect()
+        if not self._check_interface_chains(results):
+            self.progress.finished(ok=False, note="Chain selection needs attention.")
+            return
+        results = self.collect()          # re-read: the check may have ticked chains
         problem = self._validate(results)
         if problem:
             messagebox.showwarning("Nothing to run", problem)
