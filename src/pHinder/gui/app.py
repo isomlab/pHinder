@@ -93,7 +93,7 @@ class PHinderApp(tk.Tk):
         """`defaults` maps group name -> {option: default}. `runner` is called on
         a worker thread as runner(results, report) and defaults to the real one."""
         super().__init__()
-        self.title("pHinder — Isom Lab")
+        self.title("pHinder electroinformatics for understanding how protons regulate protein structure-function relationships")
         self.configure(bg=theme.BG)
         self.minsize(1180, 760)
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
@@ -108,7 +108,9 @@ class PHinderApp(tk.Tk):
         theme.apply_style(self.fonts)
         self.scroll = theme.ScrollHost(self)
 
-        theme.header(self, "pHinder", "ionizable-residue networks and surfaces",
+        theme.header(self, "pHinder",
+                     "electroinformatics for understanding how protons regulate "
+                     "protein structure-function relationships",
                      f"v{VERSION}" if VERSION else "")
 
         split = ttk.PanedWindow(self, orient="horizontal")
