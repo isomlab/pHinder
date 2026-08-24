@@ -296,6 +296,12 @@ class _Report:
     def status(self, text, detail=""):
         self._panel.status(text, detail)
 
+    def set_total_steps(self, n):
+        self._panel.set_total_steps(n)
+
+    def substep(self, text):
+        self._panel.substep(text)
+
     def write(self, text, error=False):
         self._panel.write(text if text.endswith("\n") else text + "\n", error)
 

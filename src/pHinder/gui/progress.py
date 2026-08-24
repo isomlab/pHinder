@@ -75,7 +75,7 @@ class ProgressPanel(ttk.Frame):
         self.cancel_button.pack(side="left", padx=(8, 0))
         ttk.Button(buttons, text="Clear", command=self.clear_log).pack(side="right")
 
-        self.after(60, self._drain)
+        self.after(30, self._drain)
 
     # --- stages -------------------------------------------------------------
     def set_stages(self, stages):
@@ -98,12 +98,19 @@ class ProgressPanel(ttk.Frame):
             self._rows[key] = (mark, text)
         self._bar.configure(maximum=len(stages), value=0)
 
+    def set_total_steps(self, n):
+        """Size the bar in sub-steps so it advances during a long stage."""
+        self._q.put(("total", (max(1, n),)))
+
     # --- thread-safe reporting ---------------------------------------------
     def stage(self, key, state, note=""):
         self._q.put(("stage", (key, state, note)))
 
     def status(self, text, detail=""):
         self._q.put(("status", (text, detail)))
+
+    def substep(self, text):
+        self._q.put(("substep", (text,)))
 
     def write(self, text, error=False):
         self._q.put(("log", (text, error)))
@@ -119,7 +126,7 @@ class ProgressPanel(ttk.Frame):
                 getattr(self, f"_apply_{kind}")(*payload)
         except queue.Empty:
             pass
-        self.after(60, self._drain)
+        self.after(30, self._drain)
 
     def _apply_stage(self, key, state, note):
         row = self._rows.get(key)
@@ -131,8 +138,13 @@ class ProgressPanel(ttk.Frame):
         text.configure(fg=theme.TEXT if state in (ACTIVE, DONE) else theme.MUTED)
         if note:
             text.configure(text=f"{text.cget('text').split('  —')[0]}  — {note}")
-        if state in (DONE, FAILED, SKIPPED):
-            self._bar.configure(value=min(self._bar["value"] + 1, self._bar["maximum"]))
+
+    def _apply_total(self, n):
+        self._bar.configure(maximum=n, value=0)
+
+    def _apply_substep(self, text):
+        self._bar.configure(value=min(self._bar["value"] + 1, self._bar["maximum"]))
+        self._detail.configure(text=text)
 
     def _apply_status(self, text, detail):
         self._status.configure(text=text)

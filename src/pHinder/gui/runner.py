@@ -35,6 +35,79 @@ AA_SETS = {
 GROUP_CHAINS = "Group Chains"
 
 
+# Each pHinder call the GUI makes, with what to show while it runs. Anything not
+# listed still reports, just under its method name.
+STEP_LABELS = {
+    "setQuerySet": "Preparing the query set",
+    "openPDBs": "Reading the structure",
+    "hetLigand4D": "Locating ligands",
+    "hydrogens": "Handling hydrogens",
+    "makeAtomCollections": "Collecting atoms",
+    "makeVertices4D": "Building vertices",
+    "selectTscTriangulationAtoms": "Selecting triangulation atoms",
+    "triangulateTscAtoms": "Triangulating sidechain atoms",
+    "writeTriangulation": "Writing the triangulation",
+    "pruneTriangulation": "Pruning the triangulation",
+    "minimizePrunedTriangulation": "Minimising the pruned network",
+    "identifyTightBonds": "Identifying tight bonds",
+    "calculateNetworkParity": "Calculating network parity",
+    "surface": "Computing the molecular surface",
+    "writeSurface": "Writing the surface",
+    "surfaceLigands": "Surfacing ligands",
+    "writeLigandSurfaces": "Writing ligand surfaces",
+    "selectTscClassificationAtoms": "Selecting atoms to classify",
+    "classifySidechainLocation": "Classifying sidechain locations",
+    "identifyMissingTscAtoms": "Checking for missing sidechain atoms",
+    "writeSidechainClassificationResults": "Writing classification results",
+    "classifyInterfaceSidechains": "Classifying interface sidechains",
+    "makeSamplingGridUsingProteinSurface": "Building the sampling grid",
+    "filterSamplingPointsUsingClashes": "Removing clashing grid points",
+    "triangulateRemainingGridPoints": "Triangulating grid points",
+    "identifyAndParseIndividualSamplingVoids": "Parsing sampling voids",
+    "calculateSamplingVoidSurfaces": "Surfacing sampling voids",
+}
+
+# The calls each block performs, in order -- used both to run them and to size
+# the progress bar before anything starts.
+PREP_STEPS = ["setQuerySet", "openPDBs", "hetLigand4D", "hydrogens",
+              "makeAtomCollections", "makeVertices4D"]
+TRIANGULATE_STEPS = ["selectTscTriangulationAtoms", "triangulateTscAtoms",
+                     "writeTriangulation", "pruneTriangulation",
+                     "minimizePrunedTriangulation", "identifyTightBonds",
+                     "calculateNetworkParity"]
+SURFACE_STEPS = ["surface", "writeSurface", "surfaceLigands", "writeLigandSurfaces"]
+CLASSIFY_STEPS = ["selectTscClassificationAtoms", "classifySidechainLocation",
+                  "identifyMissingTscAtoms", "writeSidechainClassificationResults"]
+SCREEN_STEPS = ["makeSamplingGridUsingProteinSurface", "filterSamplingPointsUsingClashes",
+                "triangulateRemainingGridPoints", "identifyAndParseIndividualSamplingVoids",
+                "calculateSamplingVoidSurfaces"]
+
+# What each calculation needs, so the total can be counted without running it.
+NEEDS = {
+    "topologyCalculation": ["triangulate"],
+    "surfaceCalculation": ["surface"],
+    "sidechainClassification": ["triangulate", "surface", "classify"],
+    "interfaceClassification": ["triangulate", "surface", "classify", "interface"],
+    "virtualScreenSurfacesCalculation": ["triangulate", "surface", "screen"],
+}
+BLOCK_STEPS = {
+    "triangulate": TRIANGULATE_STEPS, "surface": SURFACE_STEPS,
+    "classify": CLASSIFY_STEPS, "interface": ["classifyInterfaceSidechains"],
+    "screen": SCREEN_STEPS,
+}
+
+
+def count_steps(calc):
+    """How many calls a run will make, counting each shared block once."""
+    blocks = []
+    for key, needed in NEEDS.items():
+        if calc.get(key):
+            for b in needed:
+                if b not in blocks:
+                    blocks.append(b)
+    return len(PREP_STEPS) + sum(len(BLOCK_STEPS[b]) for b in blocks)
+
+
 class Cancelled(Exception):
     """Raised to unwind when the user asks the run to stop."""
 
@@ -78,32 +151,32 @@ class _Steps:
         if self._report.cancelled:
             raise Cancelled()
 
+    def do(self, name, *args, **kwargs):
+        """Announce a call, honour a stop request, then make it.
+
+        Reporting per call is what makes the bar move inside a long stage --
+        stage boundaries alone can be minutes apart.
+        """
+        self._check()
+        self._report.substep(STEP_LABELS.get(name, name))
+        return getattr(self._inst, name)(*args, **kwargs)
+
+    def run_block(self, names):
+        for name in names:
+            self.do(name)
+
     def triangulate(self):
         if "triangulate" in self._done:
             return
-        self._check()
-        inst = self._inst
-        inst.selectTscTriangulationAtoms()
-        inst.triangulateTscAtoms()
-        inst.writeTriangulation()
-        self._check()
-        inst.pruneTriangulation()
-        inst.minimizePrunedTriangulation()
-        self._check()
-        inst.identifyTightBonds()
-        inst.calculateNetworkParity()
+        self.run_block(TRIANGULATE_STEPS)
         self._done.add("triangulate")
 
     def surface(self):
         if "surface" in self._done:
             return
-        self._check()
-        inst = self._inst
-        inst.surface(**self._surface_kwargs)
-        inst.writeSurface()
-        self._check()
-        inst.surfaceLigands()
-        inst.writeLigandSurfaces()
+        self.do("surface", **self._surface_kwargs)
+        for name in SURFACE_STEPS[1:]:
+            self.do(name)
         self._done.add("surface")
 
     def classify(self):
@@ -111,13 +184,7 @@ class _Steps:
             return
         self.triangulate()
         self.surface()
-        self._check()
-        inst = self._inst
-        inst.selectTscClassificationAtoms()
-        inst.classifySidechainLocation()
-        self._check()
-        inst.identifyMissingTscAtoms()
-        inst.writeSidechainClassificationResults()
+        self.run_block(CLASSIFY_STEPS)
         self._done.add("classify")
 
 
@@ -199,6 +266,12 @@ def run(results, report):
 
     original_stdout, original_stderr = sys.stdout, sys.stderr
     sys.stdout = sys.stderr = _Out(report, original_stdout)
+    # pHinder is CPU-bound pure Python. On the default 5 ms switch interval it
+    # holds the GIL long enough to starve the Tk main loop, so the window goes
+    # sluggish and progress cannot paint until the run ends. Yielding more often
+    # costs a little throughput and buys back a responsive UI.
+    original_switch = sys.getswitchinterval()
+    sys.setswitchinterval(0.001)
     started = time.time()
     calc = results["calculation_options"]
 
@@ -214,13 +287,13 @@ def run(results, report):
         report.write(f"Recursion limit {sys.getrecursionlimit()} -> {limit}")
         sys.setrecursionlimit(limit)
 
+        report.set_total_steps(count_steps(calc))
         report.status("Reading structure…", name)
-        inst.setQuerySet()
-        inst.openPDBs(inst.pdbFilePath, inst.pdbFileName, zip_status=inst.zip)
-        inst.hetLigand4D()
-        inst.hydrogens()
-        inst.makeAtomCollections()
-        inst.makeVertices4D()
+        steps = _Steps(inst, report, surface_kwargs)
+        steps.do("setQuerySet")
+        steps.do("openPDBs", inst.pdbFilePath, inst.pdbFileName, zip_status=inst.zip)
+        for _name in PREP_STEPS[2:]:
+            steps.do(_name)
 
         if results["advanced_options"].get('SAVE_LOG_FILE', 1):
             # The parameter log is the first thing written, so it is the first
@@ -228,18 +301,16 @@ def run(results, report):
             os.makedirs(inst.outPath, exist_ok=True)
             write_phinder_log(inst, inst.outPath + "pHinder_parameters.log")
 
-        steps = _Steps(inst, report, surface_kwargs)
-
         # (key, label, what it needs, what it then does) -- in run order.
         plan = [
             ("topologyCalculation", "Residue network topology", steps.triangulate, None),
             ("surfaceCalculation", "Molecular surface", steps.surface, None),
             ("sidechainClassification", "Sidechain classification", steps.classify, None),
             ("interfaceClassification", "Interface classification", steps.classify,
-             lambda: inst.classifyInterfaceSidechains()),
+             lambda: steps.do("classifyInterfaceSidechains")),
             ("virtualScreenSurfacesCalculation", "Virtual screening surfaces",
              lambda: (steps.triangulate(), steps.surface()),
-             lambda: _virtual_screen(inst, results, report)),
+             lambda: _virtual_screen(steps, results)),
         ]
 
         current = None
@@ -279,18 +350,18 @@ def run(results, report):
             sys.stdout.flush()
         except Exception:
             pass
+        sys.setswitchinterval(original_switch)
         sys.stdout, sys.stderr = original_stdout, original_stderr
 
 
-def _virtual_screen(inst, results, report):
+def _virtual_screen(steps, results):
     vs = results["virtual_screening_options"]
-    inst.makeSamplingGridUsingProteinSurface()
-    inst.filterSamplingPointsUsingClashes()
-    inst.triangulateRemainingGridPoints()
-    inst.identifyAndParseIndividualSamplingVoids(
-        maxVoidNetworkEdgeLength=vs['MAX_VOID_NETWORK_EDGE_LENGTH'],
-        minVoidNetworkEdgeLength=0.0,
-        minVoidNetworkSize=vs['MIN_VOID_NETWORK_SIZE'],
-        psa=1,
-    )
-    inst.calculateSamplingVoidSurfaces(extend_sampling=True)
+    steps.do("makeSamplingGridUsingProteinSurface")
+    steps.do("filterSamplingPointsUsingClashes")
+    steps.do("triangulateRemainingGridPoints")
+    steps.do("identifyAndParseIndividualSamplingVoids",
+             maxVoidNetworkEdgeLength=vs['MAX_VOID_NETWORK_EDGE_LENGTH'],
+             minVoidNetworkEdgeLength=0.0,
+             minVoidNetworkSize=vs['MIN_VOID_NETWORK_SIZE'],
+             psa=1)
+    steps.do("calculateSamplingVoidSurfaces", extend_sampling=True)

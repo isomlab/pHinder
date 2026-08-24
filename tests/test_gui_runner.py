@@ -50,7 +50,8 @@ class Report:
     """Minimal stand-in for the progress panel's reporting surface."""
 
     def __init__(self, stop_after=None):
-        self.stages, self.lines = [], []
+        self.stages, self.lines, self.substeps = [], [], []
+        self.total = None
         self._stop_after, self._begun = stop_after, 0
 
     @property
@@ -72,6 +73,12 @@ class Report:
 
     def status(self, text, detail=""):
         pass
+
+    def set_total_steps(self, n):
+        self.total = n
+
+    def substep(self, text):
+        self.substeps.append(text)
 
     def write(self, text, error=False):
         self.lines.append(text)
@@ -192,3 +199,36 @@ def test_stdout_is_restored(fake_phinder):
     before = sys.stdout
     run(make_results(surfaceCalculation=1), Report())
     assert sys.stdout is before
+
+
+def test_progress_reports_each_call_not_just_each_stage(fake_phinder):
+    """The bar must move inside a stage; stage boundaries can be minutes apart."""
+    _, _ = fake_phinder
+    report = Report()
+    run(make_results(topologyCalculation=1), report)
+    assert "Reading the structure" in report.substeps
+    assert "Triangulating sidechain atoms" in report.substeps
+    # One sub-step per pHinder call: 6 prep + 7 triangulation.
+    assert len(report.substeps) == 13
+
+
+def test_total_steps_counts_shared_blocks_once(fake_phinder):
+    """The bar is sized before the run, so it must predict the memoisation."""
+    from pHinder.gui import runner
+
+    _, _ = fake_phinder
+    report = Report()
+    calc = make_results(interfaceClassification=1,
+                        virtualScreenSurfacesCalculation=1)["calculation_options"]
+    predicted = runner.count_steps(calc)
+    run(make_results(interfaceClassification=1, virtualScreenSurfacesCalculation=1), report)
+    assert report.total == predicted
+    assert len(report.substeps) == predicted
+
+
+def test_switch_interval_is_restored(fake_phinder):
+    """The run lowers it to keep the UI responsive; it must not leak."""
+    _, _ = fake_phinder
+    before = sys.getswitchinterval()
+    run(make_results(surfaceCalculation=1), Report())
+    assert sys.getswitchinterval() == before
