@@ -9,6 +9,8 @@ The calculation itself is untouched: this module only collects parameters and
 hands them to the existing runner.
 """
 
+import gzip
+import os
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -73,6 +75,63 @@ TAB_FOR_GROUP = {
     "virtual_screening_options": "Screening",
     "advanced_options": "Advanced",
 }
+
+
+def _read_structure_text(file_path):
+    """File contents, transparently un-gzipping when needed."""
+    with open(file_path, "rb") as fh:
+        head = fh.read(2)
+    opener = gzip.open if head == b"\x1f\x8b" else open
+    with opener(file_path, "rt", errors="replace") as fh:
+        return fh.read()
+
+
+def chain_ids(text):
+    """Chain identifiers, in the order they first appear.
+
+    mmCIF is detected by its atom_site loop rather than by extension, so a
+    misnamed file still reads correctly. For mmCIF the author chain id is
+    preferred -- auth_asym_id is what a viewer shows and what people mean by
+    "chain A" -- falling back to label_asym_id when it is absent.
+    """
+    if "_atom_site." in text:
+        return _cif_chain_ids(text)
+    return _pdb_chain_ids(text)
+
+
+def _pdb_chain_ids(text):
+    chains = []
+    for line in text.splitlines():
+        if line.startswith(("ATOM", "HETATM")) and len(line) > 21:
+            cid = line[21]
+            if cid.strip() and cid not in chains:
+                chains.append(cid)
+    return chains
+
+
+def _cif_chain_ids(text):
+    columns, chains, in_loop = {}, [], False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("_atom_site."):
+            columns[stripped.split(".", 1)[1]] = len(columns)
+            in_loop = True
+            continue
+        if not in_loop:
+            continue
+        if stripped.startswith(("ATOM", "HETATM")):
+            # auth_asym_id is the chain a viewer shows; label_asym_id is the
+            # mmCIF-internal one. label_entity_id is NOT a chain -- reading it
+            # is what makes a two-chain model look like four.
+            index = columns.get("auth_asym_id", columns.get("label_asym_id"))
+            if index is None:
+                continue
+            parts = stripped.split()
+            if index < len(parts):
+                cid = parts[index]
+                if cid not in ("?", ".") and cid not in chains:
+                    chains.append(cid)
+    return chains
 
 
 def interface_chain_check(chains, interface_selected):
@@ -372,17 +431,25 @@ class PHinderApp(tk.Tk):
                 attach(self, box, chain_body, chain_title)
 
     def _read_chains(self, file_path):
-        """Chain ids from a PDB, for the chain checkboxes."""
-        chains = []
+        """Chain ids for the chain checkboxes, from PDB or mmCIF, plain or gzipped.
+
+        The runner already accepts all three -- .cif sets pdbFormat to mmCIF and
+        .gz sets zip -- so the picker has to read them too. It used to slice
+        column 21 of ATOM lines, which is a PDB fixed-column convention and
+        finds nothing at all in mmCIF's space-separated rows.
+        """
         try:
-            with open(file_path) as fh:
-                for line in fh:
-                    if line.startswith(("ATOM", "HETATM")) and len(line) > 21:
-                        cid = line[21]
-                        if cid.strip() and cid not in chains:
-                            chains.append(cid)
+            text = _read_structure_text(file_path)
         except OSError as exc:
             messagebox.showerror("Could not read file", str(exc))
+            return []
+        chains = chain_ids(text)
+        if not chains:
+            messagebox.showwarning(
+                "No chains found",
+                f"No chain identifiers could be read from {os.path.basename(file_path)}.\n\n"
+                "pHinder reads PDB and mmCIF, gzipped or not. If this file is one of "
+                "those, its atom records may be missing chain identifiers.")
         return chains
 
     # --- progress wiring ----------------------------------------------------

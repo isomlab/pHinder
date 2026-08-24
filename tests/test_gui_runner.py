@@ -796,3 +796,84 @@ def test_probe_help_warns_about_fragmentation():
     assert "probe" in body
     assert "fragment" in body
     assert "allow small surfaces" in body
+
+
+CIF_TWO_CHAINS = """data_model
+loop_
+_entity.id
+_entity.type
+1 polymer
+2 polymer
+#
+loop_
+_struct_asym.entity_id
+_struct_asym.id
+1 A
+2 B
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.label_atom_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.auth_asym_id
+ATOM 1 N MET A 1 1 1.0 2.0 3.0 A
+ATOM 2 CA MET A 1 1 1.0 2.0 3.0 A
+ATOM 3 N GLY B 2 1 4.0 5.0 6.0 B
+#
+"""
+
+PDB_TWO_CHAINS = (
+    "ATOM      1  N   MET A   1      -1.000   2.000   3.000  1.00  0.00           N\n"
+    "ATOM      2  CA  MET A   1      -1.000   2.000   3.000  1.00  0.00           C\n"
+    "ATOM      3  N   GLY B   1       4.000   5.000   6.000  1.00  0.00           N\n"
+)
+
+
+def test_chain_ids_from_mmcif():
+    """The reader used to slice PDB column 21, which finds nothing in mmCIF."""
+    from pHinder.gui.app import chain_ids
+
+    assert chain_ids(CIF_TWO_CHAINS) == ["A", "B"]
+
+
+def test_entity_ids_are_not_mistaken_for_chains():
+    """A two-chain model carries entity ids 1 and 2 alongside chains A and B.
+    Reading the wrong column is what makes it look like four chains."""
+    from pHinder.gui.app import chain_ids
+
+    ids = chain_ids(CIF_TWO_CHAINS)
+    assert "1" not in ids and "2" not in ids
+    assert len(ids) == 2
+
+
+def test_author_chain_id_wins_over_the_label():
+    """auth_asym_id is the chain a viewer shows and what people mean by 'chain A'."""
+    from pHinder.gui.app import chain_ids
+
+    text = CIF_TWO_CHAINS.replace("3.0 A", "3.0 X").replace("6.0 B", "6.0 Y")
+    assert chain_ids(text) == ["X", "Y"]
+
+
+def test_chain_ids_from_pdb_still_work():
+    from pHinder.gui.app import chain_ids
+
+    assert chain_ids(PDB_TWO_CHAINS) == ["A", "B"]
+
+
+def test_gzipped_structures_are_read(tmp_path):
+    """The runner sets zip=1 for .gz, so the chain picker must read them too."""
+    import gzip
+
+    from pHinder.gui.app import _read_structure_text, chain_ids
+
+    path = tmp_path / "model.cif.gz"
+    with gzip.open(path, "wt") as fh:
+        fh.write(CIF_TWO_CHAINS)
+    assert chain_ids(_read_structure_text(str(path))) == ["A", "B"]
