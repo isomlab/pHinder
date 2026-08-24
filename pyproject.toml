@@ -26,7 +26,7 @@ test = ["pytest"]
 phinder = "pHinder.command_line:main"
 
 [project.gui-scripts]
-phinder-gui = "pHinder.gui.phinder_main_gui:main"
+phinder-gui = "pHinder.gui.app:main"
 
 [project.urls]
 Homepage = "https://github.com/isomlab/pHinder"

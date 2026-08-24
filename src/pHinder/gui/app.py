@@ -15,6 +15,7 @@ from tkinter import ttk, messagebox
 
 from pHinder.gui import theme
 from pHinder.gui.progress import ProgressPanel, ACTIVE, DONE, FAILED, SKIPPED
+from pHinder.gui.runner import GROUP_CHAINS
 from pHinder.gui.file_open import FilePathWidget
 from pHinder.gui.dynamic_option_widget_amino_acid_selection import AminoAcidSelectionWidget
 
@@ -32,14 +33,16 @@ DEFAULT_AA = ["Aspartic Acid (D)", "Glutamic Acid (E)", "Lysine (K)",
 CALCULATIONS = [
     ("topologyCalculation", "Residue network topology",
      "Triangulate the selected residues, prune to a network, and analyse its topology."),
-    ("sidechainClassification", "Sidechain classification",
-     "Classify each selected sidechain as core, margin, or surface against the cutoffs."),
     ("surfaceCalculation", "Molecular surface",
      "Compute the surface used for depth and exposure measurements."),
+    ("sidechainClassification", "Sidechain classification",
+     "Classify each selected sidechain as core, margin, or surface. Needs the "
+     "triangulation and the surface, and will compute them if not ticked above."),
     ("interfaceClassification", "Interface classification",
-     "Identify interface residues and voids between the selected chains."),
+     "Identify interface sidechains between the selected chains. Needs the "
+     "classification, and will compute it if not ticked above."),
     ("virtualScreenSurfacesCalculation", "Virtual screening surfaces",
-     "Generate the expanded and contracted surfaces used for virtual screening."),
+     "Grid the surface, remove clashes, and parse void volumes for screening."),
 ]
 
 # Parameter groups -> the tab each belongs on.
@@ -233,7 +236,7 @@ class PHinderApp(tk.Tk):
     def _validate(self, results):
         if not results["file_path"]:
             return "Choose a PDB file on the Input tab."
-        if not any(bool(v) for v in results["chains"].values()):
+        if not any(on for c, on in results["chains"].items() if c != GROUP_CHAINS):
             return "Select at least one chain on the Input tab."
         if not any(bool(v) for v in results["amino_acid_selections"].values()):
             return "Select at least one amino acid on the Input tab."
