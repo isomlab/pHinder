@@ -119,8 +119,36 @@ class PHinderApp(tk.Tk):
         split.add(left, weight=3)
         split.add(self.progress, weight=2)
 
+        self._split = split
         self._build_tabs(left)
         self._refresh_stages()
+        # Size the split from what the tabs actually need. ttk places the sash
+        # from the panes' requested widths, and a Canvas does not report the
+        # width of the frame scrolling inside it -- so the left pane asked for
+        # 301px while the file row alone needs 661, and Browse was clipped.
+        self.after_idle(self._fit_layout)
+
+    def _fit_layout(self):
+        """Open wide enough for the widest tab, with the sash placed to match."""
+        self.update_idletasks()
+        SCROLLBAR, MARGIN = 18, 10
+        needed = max((b.winfo_reqwidth() for b in self.scroll.bodies), default=600)
+        needed += SCROLLBAR + MARGIN
+
+        progress_min = max(self.progress.winfo_reqwidth(), 430)
+        wanted = needed + progress_min
+        screen = self.winfo_screenwidth() - 80
+        if wanted > self.winfo_width():
+            width = min(wanted, screen)
+            self.geometry(f"{width}x{self.winfo_height()}")
+            self.update_idletasks()
+
+        # Leave the progress panel its minimum if the screen could not fit both.
+        sash = min(needed, max(320, self.winfo_width() - progress_min))
+        try:
+            self._split.sashpos(0, int(sash))
+        except tk.TclError:
+            pass
 
     # --- tabs ---------------------------------------------------------------
     def _build_tabs(self, parent):

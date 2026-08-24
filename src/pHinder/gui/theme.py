@@ -135,6 +135,7 @@ class ScrollHost:
     def __init__(self, root):
         self.root = root
         self._canvases = []
+        self.bodies = []      # inner frames, for measuring what the pane needs
         root.bind_all("<MouseWheel>", self._route)
         root.bind_all("<Button-4>", lambda e: self._route(e, -1))
         root.bind_all("<Button-5>", lambda e: self._route(e, 1))
@@ -156,6 +157,7 @@ class ScrollHost:
         canvas.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
         self._canvases.append(canvas)
+        self.bodies.append(inner)
         return inner
 
     def _route(self, event, units=None):
