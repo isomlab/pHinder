@@ -72,12 +72,12 @@ def parse_arguments():
     # Sidechain classification
     parser.add_argument("--core-cutoff", type=float, default=-3.0, help="Set CORE_CUTOFF (default: -3.0)")
     parser.add_argument("--margin-cutoff", type=float, default=-2.0, help="Set MARGIN_CUTOFF (default: -2.0)")
-    parser.add_argument("--margin-cutoff-core-network", type=float, default=-2.0, help="Set MARGIN_CUTOFF_CORE_NETWORK (default: -2.0)")
+    parser.add_argument("--margin-cutoff-core-network", type=float, default=-2.0, help="NO LONGER HAS ANY EFFECT (see docs/inert_parameters.md)")
 
     # Network options
     parser.add_argument("--max-network-edge-length", type=float, default=10.0, help="Set MAX_NETWORK_EDGE_LENGTH (default: 10.0)")
     parser.add_argument("--min-network-size", type=int, default=1, help="Set MIN_NETWORK_SIZE (default: 1)")
-    parser.add_argument("--reduced-network-representation", type=int, default=1, help="Enable REDUCED_NETWORK_REPRESENTATION (default: 1)")
+    parser.add_argument("--reduced-network-representation", type=int, default=1, help="NO LONGER HAS ANY EFFECT (see docs/inert_parameters.md)")
     parser.add_argument("--save-network-triangulation", type=int, default=1, help="Enable SAVE_NETWORK_TRIANGULATION (default: 1)")
 
     # Surface options
@@ -102,7 +102,7 @@ def parse_arguments():
     parser.add_argument("--group-chains", type=int, default=0, help="Group chains together for analysis (default: 0)")
 
     # Advanced
-    parser.add_argument("--allow-cys-core-seeding", type=int, default=0, help="Enable ALLOW_CYS_CORE_SEEDING (default: 0)")
+    parser.add_argument("--allow-cys-core-seeding", type=int, default=0, help="NO LONGER HAS ANY EFFECT (see docs/inert_parameters.md)")
     parser.add_argument("--include-hydrogens", type=int, default=0, help="Enable INCLUDE_HYDROGENS (default: 0)")
     parser.add_argument("--include-water", type=int, default=0, help="Enable INCLUDE_WATER (default: 0)")
     parser.add_argument("--include-ions", type=int, default=0, help="Enable INCLUDE_IONS (default: 0)")
@@ -121,12 +121,12 @@ def write_phinder_log(p, log_path):
     # Create a list of attributes you want to record
     attr_names = [
         "gui", "processes", "pdbFilePath", "pdbFileName", "outPath", "pdbFormat", "zip", "chains", "group_chains",
-        "residueSet", "maxNetworkEdgeLength", "minNetworkSize", "reducedNetworkRepresentation",
+        "residueSet", "maxNetworkEdgeLength", "minNetworkSize",
         "saveNetworkTriangulation", "highResolutionSurface", "saveSurface", "allowSmallSurfaces",
         "saveLigandSurfaces", "writeSurfaceCreationAnimation", "coreCutoff", "marginCutoff",
-        "marginCutoffCoreNetwork", "interface_distance_filter", "virtualClashCutoff",
+        "interface_distance_filter", "virtualClashCutoff",
         "inIterations", "inIterationsStepSize", "outIterations", "outIterationsStepSize",
-        "allowCysCoreSeeding", "includeHydrogens", "includeWater", "includeIons"
+        "includeHydrogens", "includeWater", "includeIons"
     ]
 
     max_len = max(len(attr) for attr in attr_names)
@@ -189,7 +189,6 @@ def main():
     # Set options from args
     p.maxNetworkEdgeLength = args.max_network_edge_length
     p.minNetworkSize = args.min_network_size
-    p.reducedNetworkRepresentation = args.reduced_network_representation
     p.saveNetworkTriangulation = args.save_network_triangulation
     p.highResolutionSurface = args.high_resolution_surface
     p.saveSurface = args.save_surface
@@ -198,14 +197,24 @@ def main():
     p.writeSurfaceCreationAnimation = args.write_surface_creation_animation
     p.coreCutoff = args.core_cutoff
     p.marginCutoff = args.margin_cutoff
-    p.marginCutoffCoreNetwork = args.margin_cutoff_core_network
     p.interface_distance_filter = args.interface_distance_filter
     p.virtualClashCutoff = args.virtual_clash_cutoff
     p.inIterations = args.in_iterations
     p.inIterationsStepSize = args.in_iterations_step_size
     p.outIterations = args.out_iterations
     p.outIterationsStepSize = args.out_iterations_step_size
-    p.allowCysCoreSeeding = args.allow_cys_core_seeding
+    # These three were dropped when the 7.0 algorithms were rewritten. The flags
+    # stay accepted so existing scripts keep running, but they change nothing.
+    for _flag, _value, _default in (("--reduced-network-representation",
+                                     args.reduced_network_representation, 1),
+                                    ("--margin-cutoff-core-network",
+                                     args.margin_cutoff_core_network, -2.0),
+                                    ("--allow-cys-core-seeding",
+                                     args.allow_cys_core_seeding, 0)):
+        if _value != _default:
+            print(f"warning: {_flag} no longer has any effect and was ignored "
+                  f"(see docs/inert_parameters.md)")
+
     p.includeHydrogens = args.include_hydrogens
     p.includeWater = args.include_water
     p.includeIons = args.include_ions

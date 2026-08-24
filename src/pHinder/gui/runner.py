@@ -225,7 +225,6 @@ def _configure(inst, results, report):
     net = results["network_options"]
     inst.maxNetworkEdgeLength = net['MAX_NETWORK_EDGE_LENGTH']
     inst.minNetworkSize = net['MIN_NETWORK_SIZE']
-    inst.reducedNetworkRepresentation = net['REDUCED_NETWORK_REPRESENTATION']
     inst.saveNetworkTriangulation = net['SAVE_NETWORK_TRIANGULATION']
 
     surf = results["surface_options"]
@@ -238,7 +237,6 @@ def _configure(inst, results, report):
     sc = results["sidechain_classification_options"]
     inst.coreCutoff = sc['CORE_CUTOFF']
     inst.marginCutoff = sc['MARGIN_CUTOFF']
-    inst.marginCutoffCoreNetwork = sc['MARGIN_CUTOFF_CORE_NETWORK']
 
     inst.interface_distance_filter = results["interface_options"]["INTERFACE_DISTANCE_FILTER"]
 
@@ -250,7 +248,6 @@ def _configure(inst, results, report):
     inst.outIterationsStepSize = vs['OUT_ITERATIONS_STEP_SIZE']
 
     adv = results["advanced_options"]
-    inst.allowCysCoreSeeding = adv['ALLOW_CYS_CORE_SEEDING']
     inst.includeHydrogens = adv['INCLUDE_HYDROGENS']
     inst.includeWater = adv['INCLUDE_WATER']
     inst.includeIons = adv['INCLUDE_IONS']

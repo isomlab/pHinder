@@ -55,10 +55,6 @@ PARAMETERS = {
         f"The boundary between margin and exposed, applied after the core test. "
         f"{_DEPTH} Anything deeper than this but shallower than the core cutoff is "
         "margin; anything shallower is exposed."),
-    "MARGIN_CUTOFF_CORE_NETWORK": (
-        "Margin cutoff, core network (Å)",
-        "No effect at present. pHinder stores this value — from the GUI, the CLI "
-        "and the class default alike — but nothing in the package ever reads it."),
 
     # --- Networks ----------------------------------------------------------
     "MAX_NETWORK_EDGE_LENGTH": (
@@ -71,10 +67,6 @@ PARAMETERS = {
         "Networks smaller than this are dropped when the networks are ranked from "
         "largest to smallest. The default of 1 keeps every network, including "
         "isolated residues."),
-    "REDUCED_NETWORK_REPRESENTATION": (
-        "Reduced network representation",
-        "No effect at present. pHinder stores this flag but nothing in the package "
-        "ever reads it."),
     "SAVE_NETWORK_TRIANGULATION": (
         "Save network triangulation",
         "Write the triangulation itself alongside the network results, not just the "
@@ -149,10 +141,6 @@ PARAMETERS = {
         "from the surface the sampling extends."),
 
     # --- Advanced ----------------------------------------------------------
-    "ALLOW_CYS_CORE_SEEDING": (
-        "Allow cysteine core seeding",
-        "No effect at present. pHinder stores this flag but nothing in the package "
-        "ever reads it."),
     "INCLUDE_HYDROGENS": (
         "Include hydrogens",
         "Keep hydrogen atoms from the structure instead of discarding them. Most "
@@ -214,11 +202,11 @@ ACTIONS = {
 # alone cannot tell you: IN_ITERATIONS and MIN_NETWORK_SIZE both default to 1
 # but are counts, and rendering them as checkboxes capped them at 1.
 BOOLEAN_OPTIONS = {
-    "REDUCED_NETWORK_REPRESENTATION", "SAVE_NETWORK_TRIANGULATION",
+    "SAVE_NETWORK_TRIANGULATION",
     "HIGH_RESOLUTION_SURFACE", "SAVE_SURFACE", "ALLOW_SMALL_SURFACES",
     "SAVE_LIGAND_SURFACES", "WRITE_SURFACE_CREATION_ANIMATION",
-    "ALLOW_CYS_CORE_SEEDING", "INCLUDE_HYDROGENS", "INCLUDE_WATER",
-    "INCLUDE_IONS", "SAVE_LOG_FILE",
+    "INCLUDE_HYDROGENS", "INCLUDE_WATER",
+    "INCLUDE_INS_PLACEHOLDER", "INCLUDE_IONS", "SAVE_LOG_FILE",
 }
 
 

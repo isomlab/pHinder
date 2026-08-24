@@ -106,10 +106,10 @@ def make_results(**calc):
         "amino_acid_selections": {"Asp": 1, "Glu": 1, "Lys": 1, "Arg": 1, "His": 1, "Ala": 0},
         "calculation_options": options,
         "sidechain_classification_options": {
-            "CORE_CUTOFF": -3.0, "MARGIN_CUTOFF": -2.0, "MARGIN_CUTOFF_CORE_NETWORK": -2.0},
+            "CORE_CUTOFF": -3.0, "MARGIN_CUTOFF": -2.0},
         "network_options": {
             "MAX_NETWORK_EDGE_LENGTH": 10.0, "MIN_NETWORK_SIZE": 1,
-            "REDUCED_NETWORK_REPRESENTATION": 1, "SAVE_NETWORK_TRIANGULATION": 1},
+            "SAVE_NETWORK_TRIANGULATION": 1},
         "surface_options": {
             "HIGH_RESOLUTION_SURFACE": 1, "SAVE_SURFACE": 1, "ALLOW_SMALL_SURFACES": 0,
             "SAVE_LIGAND_SURFACES": 0, "WRITE_SURFACE_CREATION_ANIMATION": 0,
@@ -120,7 +120,7 @@ def make_results(**calc):
             "VIRTUAL_CLASH_CUTOFF": 2.5, "IN_ITERATIONS": 1, "IN_ITERATIONS_STEP_SIZE": 2.0,
             "OUT_ITERATIONS": 1, "OUT_ITERATIONS_STEP_SIZE": 2.0},
         "advanced_options": {
-            "ALLOW_CYS_CORE_SEEDING": 0, "INCLUDE_HYDROGENS": 0, "INCLUDE_WATER": 0,
+            "INCLUDE_HYDROGENS": 0, "INCLUDE_WATER": 0,
             "INCLUDE_IONS": 0, "SAVE_LOG_FILE": 0, "PYTHON_RECURSION_LIMIT": 10000},
     }
 
@@ -268,13 +268,32 @@ def test_counts_are_entries_not_checkboxes():
         assert help_text.is_boolean(key), f"{key} should be a checkbox"
 
 
-def test_inert_parameters_say_so():
-    """Three values are set by the GUI/CLI and never read; help must not pretend."""
-    from pHinder.gui import help_text
+INERT = ("MARGIN_CUTOFF_CORE_NETWORK", "REDUCED_NETWORK_REPRESENTATION",
+         "ALLOW_CYS_CORE_SEEDING")
 
-    for key in ("MARGIN_CUTOFF_CORE_NETWORK", "REDUCED_NETWORK_REPRESENTATION",
-                "ALLOW_CYS_CORE_SEEDING"):
-        assert "No effect" in help_text.for_option(key)[1]
+
+def test_inert_parameters_are_gone_from_the_gui():
+    """They were offered as controls but nothing read them.
+
+    The algorithms that consumed them were rewritten for 7.0; see
+    docs/inert_parameters.md for what each one did.
+    """
+    from pHinder.gui import phinder_main_gui as legacy
+
+    groups = ["sidechain_classification_options", "network_options", "surface_options",
+              "interface_options", "virtual_screening_options", "advanced_options"]
+    offered = {k for g in groups for k in getattr(legacy, f"default_{g}")}
+    assert not (offered & set(INERT))
+
+
+def test_runner_does_not_assign_inert_parameters(fake_phinder):
+    """Assigning a value nothing reads only invites the confusion back."""
+    _, holder = fake_phinder
+    run(make_results(surfaceCalculation=1), Report())
+    attrs = holder["instance"].attrs
+    for name in ("marginCutoffCoreNetwork", "reducedNetworkRepresentation",
+                 "allowCysCoreSeeding"):
+        assert name not in attrs
 
 
 def test_defaults_agree_across_entry_points():
