@@ -81,25 +81,48 @@ PARAMETERS = {
 
     # --- Surfaces ----------------------------------------------------------
     "circumSphereRadiusLimit": (
-        "Circumsphere radius limit (Å)",
-        "Upper bound on the circumsphere radius of a simplex kept when the surface "
-        "is built — in effect, how tightly the surface is allowed to wrap the "
-        "structure. Passed straight to the surface calculation."),
+        "Circumsphere radius limit (Å) — the probe size",
+        "Sets the size of the probe used to carve the surface out of the structure. "
+        "pHinder peels away surface tetrahedra whose circumsphere is larger than "
+        "this radius, looks at the edges that peeling exposes, and repeats until "
+        "nothing more can be removed — so the limit behaves as the radius of a "
+        "probe rolled over the structure.\n\n"
+        "Larger values leave a smoother, more enveloping surface that bridges over "
+        "clefts and pockets rather than following them in. Smaller values carve "
+        "further in and resolve finer detail.\n\n"
+        "Go too small and the surface stops being one connected sheet and breaks "
+        "into fragments. pHinder then keeps only the large pieces, so parts of the "
+        "surface can disappear — see “Allow small surfaces” below if that happens. "
+        "The lab default is 6.5 Å."),
     "minArea": (
-        "Minimum facet area (Å²)",
-        "Facets smaller than this are not kept when the surface is assembled. "
-        "Passed straight to the surface calculation."),
+        "Minimum facet area (Å²) — really a maximum",
+        "The refinement target for the high-resolution pass. Facets *larger* than "
+        "this are subdivided, and the pass repeats until none exceed it, so despite "
+        "the name this is an upper bound on facet size and not a floor.\n\n"
+        "Lowering it gives a finer, denser mesh and a slower calculation; raising it "
+        "gives a coarser one. It has no effect at all unless “High-resolution "
+        "surface” is ticked."),
     "HIGH_RESOLUTION_SURFACE": (
         "High-resolution surface",
-        "Build the surface at higher resolution. Slower, and worth it when you need "
-        "fine detail in the depth measurements that classification depends on."),
+        "Runs the refinement passes after the surface has been carved: facets larger "
+        "than the minimum facet area are subdivided until none exceed it, then the "
+        "divots left between facets are smoothed.\n\n"
+        "Untick it and you get the carved surface as it comes, with no refinement — "
+        "quicker, and the minimum facet area setting then does nothing."),
     "SAVE_SURFACE": (
         "Save surface",
         "Write the computed molecular surface to the results directory."),
     "ALLOW_SMALL_SURFACES": (
         "Allow small surfaces",
-        "Permit surfaces that would otherwise be rejected as too small. Useful for "
-        "short chains, peptides, and fragments that the normal test discards."),
+        "Carving can leave the surface in several disconnected pieces. pHinder keeps "
+        "only the pieces above a size threshold — counted in surface facets — and "
+        "discards the rest, reporting each one it drops as “skipped because too "
+        "small”.\n\n"
+        "Unticked, that threshold is 1000 facets. Ticked, it drops to 1, so every "
+        "piece is kept.\n\n"
+        "Worth ticking when the structure is small enough that the whole surface "
+        "falls under the threshold, or when a small circumsphere radius limit has "
+        "fragmented the surface and you want the fragments rather than silence."),
     "SAVE_LIGAND_SURFACES": (
         "Save ligand surfaces",
         "Surface the ligands as well as the protein, and write the result. Despite "

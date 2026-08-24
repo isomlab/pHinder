@@ -773,3 +773,26 @@ def test_the_defaults_note_appears_on_every_parameter_tab():
         assert "Calculations" not in carrying
     finally:
         app.destroy()
+
+
+def test_min_area_help_does_not_describe_a_floor():
+    """facetAreas() collects facets with area > minArea and dividePatch()
+    subdivides them until none exceed it, so minArea is an upper bound. The
+    help previously said the opposite -- that smaller facets were discarded."""
+    from pHinder.gui import help_text
+
+    body = help_text.for_option("minArea")[1].lower()
+    assert "larger" in body
+    assert "not a floor" in body or "maximum" in body
+
+
+def test_probe_help_warns_about_fragmentation():
+    """Too small a radius fragments the surface, and goFoSurface() then drops
+    components under the size threshold -- the user needs to know why parts of
+    the surface can vanish."""
+    from pHinder.gui import help_text
+
+    body = help_text.for_option("circumSphereRadiusLimit")[1].lower()
+    assert "probe" in body
+    assert "fragment" in body
+    assert "allow small surfaces" in body
