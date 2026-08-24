@@ -132,6 +132,15 @@ class PHinderApp(tk.Tk):
         # 301px while the file row alone needs 661, and Browse was clipped.
         self.after_idle(self._fit_layout)
 
+    def _on_tab_changed(self, _event=None):
+        self._hide_tip()
+        try:
+            current = self._nb.nametowidget(self._nb.select())
+        except Exception:
+            return
+        # after_idle so the tab has been mapped and sized before we measure it.
+        self.after_idle(lambda: self.scroll.refresh(current))
+
     def _hide_tip(self):
         tip = getattr(self, "_tip", None)
         if tip is not None:
@@ -164,7 +173,7 @@ class PHinderApp(tk.Tk):
         nb = ttk.Notebook(parent)
         nb.pack(fill="both", expand=True)
         self._nb = nb
-        nb.bind("<<NotebookTabChanged>>", lambda e: self._hide_tip(), add="+")
+        nb.bind("<<NotebookTabChanged>>", self._on_tab_changed, add="+")
 
         self._tabs = {}
         for title, builder in (

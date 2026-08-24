@@ -370,19 +370,16 @@ def test_tooltip_does_not_survive_a_tab_change():
 
     import pytest
 
-    try:
-        probe = tk.Tk()
-    except tk.TclError:                       # no display
-        pytest.skip("no display")
-    probe.destroy()
-
     from pHinder.gui import phinder_main_gui as legacy
     from pHinder.gui.app import PHinderApp
 
     groups = ["calculation_options", "sidechain_classification_options",
               "network_options", "surface_options", "interface_options",
               "virtual_screening_options", "advanced_options"]
-    app = PHinderApp({g: getattr(legacy, f"default_{g}") for g in groups})
+    try:
+        app = PHinderApp({g: getattr(legacy, f"default_{g}") for g in groups})
+    except tk.TclError:                       # no display
+        pytest.skip("no display")
     try:
         for var in app.vars["calculation_options"].values():
             var.set(1)
@@ -417,3 +414,91 @@ def test_tooltip_does_not_survive_a_tab_change():
         assert app._tip._win is None, "tip must not outlive the tab that raised it"
     finally:
         app.destroy()
+
+
+def test_scrollhost_refresh_repairs_a_stale_canvas():
+    """A tab mapped with stale canvas state draws as an empty pane.
+
+    A canvas only learns its width from a <Configure>, so one hidden across a
+    resize can come back with item width 0, an oversized scrollregion and a
+    scrolled yview -- which draws as nothing at all. ScrollHost.refresh() is
+    what a newly shown tab calls to put all three right.
+
+    Exercised directly: driving it through a real tab change depends on Tk
+    servicing after_idle, which is not reliable under pytest.
+    """
+    import tkinter as tk
+
+    import pytest
+
+    from pHinder.gui import theme
+
+    try:
+        root = tk.Tk()
+    except tk.TclError:                       # no display
+        pytest.skip("no display")
+    try:
+        root.geometry("600x400")
+        root.fonts = theme.Fonts()
+        theme.apply_style(root.fonts)
+        host = theme.ScrollHost(root)
+        holder = tk.Frame(root, width=600, height=400)
+        holder.pack(fill="both", expand=True)
+        body = host.body(holder)
+        tk.Label(body, text="content").pack()
+        root.update_idletasks()
+
+        canvas = host._canvases[-1]
+        item = host._items[canvas]
+
+        canvas.itemconfigure(item, width=0)
+        canvas.configure(scrollregion=(0, 0, 600, 4000))
+        canvas.yview_moveto(0.55)
+        root.update_idletasks()
+        assert int(canvas.itemcget(item, "width")) == 0
+        assert canvas.yview()[0] > 0
+
+        host.refresh(holder)
+        root.update_idletasks()
+
+        assert int(canvas.itemcget(item, "width")) > 1, "body never got the canvas width"
+        assert canvas.yview()[0] == 0.0, "short content left scrolled out of view"
+        assert canvas.cget("scrollregion") != "0 0 600 4000", "stale scrollregion kept"
+    finally:
+        root.destroy()
+
+
+def test_scrollhost_refresh_does_not_touch_sibling_tabs():
+    """Tk paths are dot-separated: ".!frame" must not match ".!frame3"."""
+    import tkinter as tk
+
+    import pytest
+
+    from pHinder.gui import theme
+
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("no display")
+    try:
+        root.fonts = theme.Fonts()
+        theme.apply_style(root.fonts)
+        host = theme.ScrollHost(root)
+        first = tk.Frame(root, name="frame", width=300, height=200)
+        second = tk.Frame(root, name="frame3", width=300, height=200)
+        for f in (first, second):
+            f.pack()
+            host.body(f)
+        root.update_idletasks()
+
+        sibling = host._canvases[-1]
+        sibling_item = host._items[sibling]
+        sibling.itemconfigure(sibling_item, width=0)
+
+        host.refresh(first)                    # refresh only the first tab
+        root.update_idletasks()
+
+        assert int(sibling.itemcget(sibling_item, "width")) == 0, \
+            "refreshing one tab reached into its sibling"
+    finally:
+        root.destroy()

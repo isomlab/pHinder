@@ -138,6 +138,7 @@ class ScrollHost:
         self.root = root
         self._canvases = []
         self.bodies = []      # inner frames, for measuring what the pane needs
+        self._items = {}      # canvas -> the window item holding its body
         root.bind_all("<MouseWheel>", self._route)
         root.bind_all("<Button-4>", lambda e: self._route(e, -1))
         root.bind_all("<Button-5>", lambda e: self._route(e, 1))
@@ -160,7 +161,38 @@ class ScrollHost:
         sb.pack(side="right", fill="y")
         self._canvases.append(canvas)
         self.bodies.append(inner)
+        self._items[canvas] = win
         return inner
+
+    def refresh(self, widget):
+        """Re-apply width and scrollregion for every canvas under `widget`.
+
+        A canvas only learns its width from a <Configure>, and a tab that was
+        hidden -- or hidden while the window was resized -- can be mapped
+        carrying stale values, which draws as an empty pane. Re-applying them
+        when a tab is shown corrects that whatever left it stale.
+        """
+        prefix = str(widget)
+        for canvas in self._canvases:
+            # Tk paths are dot-separated, so a bare startswith makes ".!frame"
+            # match ".!frame3" and refresh a sibling tab's canvas by accident.
+            path = str(canvas)
+            if path != prefix and not path.startswith(prefix + "."):
+                continue
+            if not canvas.winfo_exists():
+                continue
+            canvas.update_idletasks()
+            width = canvas.winfo_width()
+            item = self._items.get(canvas)
+            if item is not None and width > 1:
+                canvas.itemconfigure(item, width=width)
+            box = canvas.bbox("all")
+            if box:
+                canvas.configure(scrollregion=box)
+                # If the content is shorter than the viewport it must sit at the
+                # top; a stale yview would otherwise scroll it out of sight.
+                if box[3] - box[1] <= canvas.winfo_height():
+                    canvas.yview_moveto(0)
 
     def _route(self, event, units=None):
         widget = self.root.winfo_containing(event.x_root, event.y_root)
