@@ -86,12 +86,18 @@ def apply_style(fonts):
     # clam's stock notebook and progressbar are khaki; recolour both so the
     # panel reads as the same surface as the rest of the window.
     st.configure("TNotebook", background=BG, borderwidth=0, tabmargins=(2, 6, 2, 0))
+    # Padding is identical in every state and nothing expands: a tab that
+    # changes size when you select it makes the whole strip jump. The selected
+    # tab is distinguished by shade alone -- lifted to the card colour, with the
+    # label going from muted grey to the header navy.
     st.configure("TNotebook.Tab", font=fonts.label, padding=(14, 8),
-                 background=BG, foreground=MUTED, borderwidth=0)
+                 background="#dde4ea", foreground=MUTED, borderwidth=0,
+                 focuscolor="")
     st.map("TNotebook.Tab",
-           background=[("selected", CARD), ("active", "#e3e9ef")],
-           foreground=[("selected", HEADER_BG)],
-           expand=[("selected", (0, 0, 0, 2))])
+           background=[("selected", CARD), ("active", "#e8edf2")],
+           foreground=[("selected", HEADER_BG), ("active", TEXT)],
+           padding=[("selected", (14, 8))],
+           expand=[("selected", (0, 0, 0, 0))])
     st.configure("TProgressbar", troughcolor="#dfe6ec", bordercolor="#dfe6ec",
                  background=ACCENT, lightcolor=ACCENT, darkcolor=ACCENT,
                  thickness=10)
