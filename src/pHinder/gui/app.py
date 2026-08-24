@@ -16,6 +16,8 @@ from tkinter import ttk, messagebox
 from pHinder.gui import theme
 from pHinder.gui.progress import ProgressPanel, ACTIVE, DONE, FAILED, SKIPPED
 from pHinder.gui.runner import GROUP_CHAINS, NEEDS
+from pHinder.gui import help_text
+from pHinder.gui.tooltip import attach
 from pHinder.gui.file_open import FilePathWidget
 from pHinder.gui.dynamic_option_widget_amino_acid_selection import AminoAcidSelectionWidget
 
@@ -181,12 +183,14 @@ class PHinderApp(tk.Tk):
                                           options_label="Chains:",
                                           extra_options={"Group Chains": 0})
         self.file_widget.frame.pack(fill="x", anchor="w")
+        attach(self, card, *reversed(help_text.INPUT["file_path"]))
 
         card = theme.section(body, "Residues",
                              "pHinder defaults to the ionizable set: D, E, K, R and H.")
         self.aa_widget = AminoAcidSelectionWidget(card, "Amino acids",
                                                   default_selections=DEFAULT_AA)
         self.aa_widget.frame.pack(fill="x", anchor="w")
+        attach(self, card, *reversed(help_text.INPUT["residues"]))
 
     def _build_calculations_tab(self, body):
         card = theme.section(body, "Calculations to run",
@@ -196,12 +200,14 @@ class PHinderApp(tk.Tk):
             var = tk.IntVar(value=self.defaults["calculation_options"].get(key, 0))
             var.trace_add("write", lambda *_: self._refresh_stages())
             self.vars["calculation_options"][key] = var
-            ttk.Checkbutton(card, text=label, variable=var,
-                            style="Card.TCheckbutton").grid(row=row * 2, column=0,
-                                                            sticky="w", pady=(6, 0))
-            ttk.Label(card, text=blurb, style="Help.TLabel", wraplength=520,
-                      justify="left").grid(row=row * 2 + 1, column=0, sticky="w",
-                                           padx=(22, 0), pady=(0, 4))
+            box = ttk.Checkbutton(card, text=label, variable=var, style="Card.TCheckbutton")
+            box.grid(row=row * 2, column=0, sticky="w", pady=(6, 0))
+            hint = ttk.Label(card, text=blurb, style="Help.TLabel", wraplength=520,
+                             justify="left")
+            hint.grid(row=row * 2 + 1, column=0, sticky="w", padx=(22, 0), pady=(0, 4))
+            title, body = help_text.CALCULATIONS.get(key, ("", ""))
+            for w in (box, hint):
+                attach(self, w, body, title)
 
     def _build_group_tab(self, body, group):
         defaults = self.defaults[group]
@@ -220,18 +226,26 @@ class PHinderApp(tk.Tk):
                    command=lambda g=group: self._reset(g)).pack(side="left")
 
     def _field(self, card, key, default, row):
-        """Checkbox for 0/1 flags, entry for numbers -- matching how the panes did it."""
-        label = prettify(key)
-        if isinstance(default, int) and default in (0, 1) and not isinstance(default, bool):
+        """Checkbox for 0/1 flags, entry for numbers -- matching how the panes did it.
+
+        Hover help carries the documented title, so the mechanically prettified
+        label never has to stand on its own.
+        """
+        title, body = help_text.for_option(key)
+        label = title or prettify(key)
+        if help_text.is_boolean(key):
             var = tk.IntVar(value=default)
             w = ttk.Checkbutton(card, text=label, variable=var, style="Card.TCheckbutton")
             w.grid(row=row, column=0, columnspan=2, sticky="w", pady=3)
+            attach(self, w, body, title)
             return var, w
         var = tk.DoubleVar(value=default) if isinstance(default, float) else tk.IntVar(value=default)
-        ttk.Label(card, text=label, style="Field.TLabel").grid(row=row, column=0,
-                                                               sticky="w", padx=(0, 12), pady=3)
+        lab = ttk.Label(card, text=label, style="Field.TLabel")
+        lab.grid(row=row, column=0, sticky="w", padx=(0, 12), pady=3)
         w = ttk.Entry(card, textvariable=var, width=14)
         w.grid(row=row, column=1, sticky="w", pady=3)
+        for widget in (lab, w):
+            attach(self, widget, body, title)
         return var, w
 
     def _reset(self, group):

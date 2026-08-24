@@ -232,3 +232,46 @@ def test_switch_interval_is_restored(fake_phinder):
     before = sys.getswitchinterval()
     run(make_results(surfaceCalculation=1), Report())
     assert sys.getswitchinterval() == before
+
+
+def test_every_parameter_and_calculation_has_help():
+    """Hover help must cover the whole surface, or it is not help."""
+    from pHinder.gui import help_text
+    from pHinder.gui import phinder_main_gui as legacy
+    from pHinder.gui.app import CALCULATIONS
+
+    groups = ["sidechain_classification_options", "network_options", "surface_options",
+              "interface_options", "virtual_screening_options", "advanced_options"]
+    undocumented = []
+    for group in groups:
+        for key in getattr(legacy, f"default_{group}"):
+            if not help_text.for_option(key)[1]:
+                undocumented.append(f"{group}.{key}")
+    for key, _, _ in CALCULATIONS:
+        if key not in help_text.CALCULATIONS:
+            undocumented.append(f"calculation.{key}")
+    assert not undocumented, f"no hover help for: {undocumented}"
+
+
+def test_counts_are_entries_not_checkboxes():
+    """A default of 1 does not make a parameter boolean.
+
+    IN_ITERATIONS, OUT_ITERATIONS and MIN_NETWORK_SIZE all default to 1 but are
+    counts; treating them as flags capped them at 1 in the GUI.
+    """
+    from pHinder.gui import help_text
+
+    for key in ("IN_ITERATIONS", "OUT_ITERATIONS", "MIN_NETWORK_SIZE",
+                "PYTHON_RECURSION_LIMIT", "MIN_VOID_NETWORK_SIZE"):
+        assert not help_text.is_boolean(key), f"{key} should be a numeric field"
+    for key in ("SAVE_SURFACE", "INCLUDE_WATER", "HIGH_RESOLUTION_SURFACE"):
+        assert help_text.is_boolean(key), f"{key} should be a checkbox"
+
+
+def test_inert_parameters_say_so():
+    """Three values are set by the GUI/CLI and never read; help must not pretend."""
+    from pHinder.gui import help_text
+
+    for key in ("MARGIN_CUTOFF_CORE_NETWORK", "REDUCED_NETWORK_REPRESENTATION",
+                "ALLOW_CYS_CORE_SEEDING"):
+        assert "No effect" in help_text.for_option(key)[1]

@@ -14,7 +14,8 @@ import queue
 import tkinter as tk
 from tkinter import ttk
 
-from pHinder.gui import theme
+from pHinder.gui import theme, help_text
+from pHinder.gui.tooltip import attach
 
 PENDING, ACTIVE, DONE, FAILED, SKIPPED = "pending", "active", "done", "failed", "skipped"
 
@@ -73,7 +74,13 @@ class ProgressPanel(ttk.Frame):
         self.cancel_button = ttk.Button(buttons, text="Stop", style="Stop.TButton",
                                         command=self._cancel_clicked, state="disabled")
         self.cancel_button.pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Clear", command=self.clear_log).pack(side="right")
+        clear = ttk.Button(buttons, text="Clear", command=self.clear_log)
+        clear.pack(side="right")
+        root = self.winfo_toplevel()
+        for widget, key in ((self.run_button, "run"), (self.cancel_button, "stop"),
+                            (clear, "clear")):
+            title, body = help_text.ACTIONS[key]
+            attach(root, widget, body, title)
 
         self.after(30, self._drain)
 

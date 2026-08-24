@@ -21,6 +21,8 @@ TEXT = "#1f2a36"
 MUTED = "#6b7a8d"
 ACCENT = "#2e7d32"
 ACCENT_ACTIVE = "#256628"
+RULE = "#dfe6ec"
+RULE_STRONG = "#c3ced9"
 
 # pHinder runs a calculation rather than storing records, so it needs a few
 # states the record tools never show.
