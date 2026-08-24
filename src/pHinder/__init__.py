@@ -8,4 +8,4 @@ compGeometry, determinants, pdbFile; upstream at github.com/isomlab/isomlab).
 Installing this package requires no other lab repository.
 """
 
-__version__ = "7.0.0"
+__version__ = "7.0.1"
