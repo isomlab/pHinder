@@ -582,7 +582,7 @@ class pHinder:
 		self.allowCysCoreSeeding = 0
 		self.writeSurfaceCreationAnimation = 0
 		self.coreCutoff = -3.0
-		self.marginCutoff = 1.05
+		self.marginCutoff = -2.0
 		self.marginCutoffCoreNetwork = -2.0
 		self.includeHydrogens = 0
 		self.processes = 1
@@ -718,7 +718,7 @@ class pHinder:
 
 		# Virtual screening variables
 		#############################
-		self.virtualClashCutoff=3.0
+		self.virtualClashCutoff=2.5
 		self.inIterations=1
 		self.inIterationsStepSize=1
 		self.outIterations=1

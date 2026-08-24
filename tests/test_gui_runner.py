@@ -275,3 +275,63 @@ def test_inert_parameters_say_so():
     for key in ("MARGIN_CUTOFF_CORE_NETWORK", "REDUCED_NETWORK_REPRESENTATION",
                 "ALLOW_CYS_CORE_SEEDING"):
         assert "No effect" in help_text.for_option(key)[1]
+
+
+def test_defaults_agree_across_entry_points():
+    """The GUI, the CLI and the class must start from the same values.
+
+    They had drifted: the class began with marginCutoff 1.05 against -2.0
+    everywhere else, and virtualClashCutoff 3.0 against 2.5. Anyone
+    constructing pHinder() directly got different classification bands than
+    the GUI and CLI produce.
+    """
+    import re
+    from pathlib import Path
+
+    from pHinder.gui import phinder_main_gui as legacy
+
+    src = Path(__file__).resolve().parents[1] / "src" / "pHinder"
+
+    def class_default(attr):
+        text = (src / "pHinder_7_0.py").read_text()
+        m = re.search(rf"self\.{attr}\s*=\s*(-?[\d.]+)", text)
+        assert m, f"no class default found for {attr}"
+        return float(m.group(1))
+
+    def cli_default(flag):
+        text = (src / "command_line.py").read_text()
+        m = re.search(rf'"--{flag}".*?default=(-?[\d.]+)', text)
+        assert m, f"no CLI default found for --{flag}"
+        return float(m.group(1))
+
+    checks = [
+        ("marginCutoff", "margin-cutoff",
+         legacy.default_sidechain_classification_options["MARGIN_CUTOFF"]),
+        ("coreCutoff", "core-cutoff",
+         legacy.default_sidechain_classification_options["CORE_CUTOFF"]),
+        ("virtualClashCutoff", "virtual-clash-cutoff",
+         legacy.default_virtual_screening_options["VIRTUAL_CLASH_CUTOFF"]),
+        ("maxNetworkEdgeLength", "max-network-edge-length",
+         legacy.default_network_options["MAX_NETWORK_EDGE_LENGTH"]),
+        ("interface_distance_filter", "interface-distance-filter",
+         legacy.default_interface_options["INTERFACE_DISTANCE_FILTER"]),
+    ]
+    mismatches = []
+    for attr, flag, gui_value in checks:
+        cls, cli = class_default(attr), cli_default(flag)
+        if not (cls == cli == float(gui_value)):
+            mismatches.append(f"{attr}: class={cls} cli={cli} gui={gui_value}")
+    assert not mismatches, "defaults disagree -> " + "; ".join(mismatches)
+
+
+def test_margin_cutoff_sits_between_core_and_the_surface():
+    """The margin band only exists if coreCutoff < marginCutoff < 0.
+
+    inLocalSurface tests `aveDistance <= coreCutoff` for core, then
+    `aveDistance <= marginCutoff` for margin. A positive marginCutoff would
+    sweep exposed residues into the margin class, which is what 1.05 did.
+    """
+    from pHinder.gui import phinder_main_gui as legacy
+
+    sc = legacy.default_sidechain_classification_options
+    assert sc["CORE_CUTOFF"] < sc["MARGIN_CUTOFF"] < 0
