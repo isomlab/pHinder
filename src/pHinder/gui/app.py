@@ -50,6 +50,7 @@ CALCULATIONS = [
 # ticking only sidechain classification still runs the triangulation and the
 # surface, and those tabs hold the parameters being applied.
 TAB_REQUIRES = {
+    "Classification": "classify",
     "Networks": "triangulate",
     "Surfaces": "surface",
     "Interfaces": "interface",
