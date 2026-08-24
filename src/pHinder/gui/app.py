@@ -60,6 +60,10 @@ TAB_REQUIRES = {
     "Screening": "screen",
 }
 
+# Shown at the top of every parameter tab that appears with a calculation.
+DEFAULTS_NOTE = ("These are the default values used in the Isom lab. "
+                 "They rarely need changing — hover any setting for what it does.")
+
 # Parameter groups -> the tab each belongs on.
 TAB_FOR_GROUP = {
     "sidechain_classification_options": "Classification",
@@ -309,6 +313,10 @@ class PHinderApp(tk.Tk):
 
     def _build_group_tab(self, body, group):
         defaults = self.defaults[group]
+        # Only the tabs that appear alongside a calculation carry the note.
+        # Advanced is always present and is built by this same function.
+        if TAB_FOR_GROUP.get(group) in TAB_REQUIRES:
+            theme.note(body, DEFAULTS_NOTE, self.fonts)
         card = theme.section(body, prettify(group.replace("_options", "")) + " parameters")
         row = 0
         for key, default in defaults.items():

@@ -726,3 +726,52 @@ def test_chain_boxes_get_hover_help_when_they_are_built():
         assert "<Enter>" in app.file_widget.options_label_widget.bind()
     finally:
         app.destroy()
+
+
+def test_the_defaults_note_appears_on_conditional_tabs_only():
+    """The note belongs on tabs that appear alongside a calculation.
+
+    Advanced is always present and is built by the same function, so it is easy
+    to give it the note by accident.
+    """
+    import tkinter as tk
+
+    import pytest
+
+    from pHinder.gui import phinder_main_gui as legacy
+    from pHinder.gui.app import PHinderApp, DEFAULTS_NOTE, TAB_REQUIRES
+
+    groups = ["calculation_options", "sidechain_classification_options",
+              "network_options", "surface_options", "interface_options",
+              "virtual_screening_options", "advanced_options"]
+    try:
+        app = PHinderApp({g: getattr(legacy, f"default_{g}") for g in groups})
+    except tk.TclError:
+        pytest.skip("no display")
+    try:
+        for var in app.vars["calculation_options"].values():
+            var.set(1)
+        app.update_idletasks()
+
+        fragment = DEFAULTS_NOTE[:30]
+
+        def has_note(frame):
+            found = []
+
+            def walk(widget):
+                if isinstance(widget, tk.Label) and fragment in str(widget.cget("text")):
+                    found.append(widget)
+                for child in widget.winfo_children():
+                    walk(child)
+
+            walk(frame)
+            return bool(found)
+
+        carrying = {app._nb.tab(i, "text")
+                    for i in range(len(app._nb.tabs()))
+                    if has_note(app.nametowidget(app._nb.tabs()[i]))}
+        assert carrying == set(TAB_REQUIRES)
+        assert "Advanced" not in carrying
+        assert "Input" not in carrying
+    finally:
+        app.destroy()

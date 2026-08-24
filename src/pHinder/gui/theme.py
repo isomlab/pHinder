@@ -21,6 +21,8 @@ TEXT = "#1f2a36"
 MUTED = "#6b7a8d"
 ACCENT = "#2e7d32"
 ACCENT_ACTIVE = "#256628"
+ACCENT_SOFT = "#eef4ef"
+ACCENT_INK = "#2f4a35"
 RULE = "#dfe6ec"
 RULE_STRONG = "#c3ced9"
 
@@ -129,6 +131,18 @@ def section(parent, title, help_text=""):
     card.pack(fill="x")
     card.columnconfigure(1, weight=1)
     return card
+
+
+def note(parent, text, fonts):
+    """A quiet standing note: accent rule down the left, muted text on card."""
+    wrap = tk.Frame(parent, background=ACCENT, padx=0, pady=0)
+    wrap.pack(fill="x", pady=(2, 4))
+    inner = tk.Frame(wrap, background=ACCENT_SOFT, padx=12, pady=9)
+    inner.pack(fill="x", padx=(3, 0))          # 3px of wrap shows as the rule
+    label = tk.Label(inner, text=text, background=ACCENT_SOFT, foreground=ACCENT_INK,
+                     font=fonts.help, justify="left", anchor="w", wraplength=560)
+    label.pack(anchor="w", fill="x")
+    return wrap
 
 
 class ScrollHost:
