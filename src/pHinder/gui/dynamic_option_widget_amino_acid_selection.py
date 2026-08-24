@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import LabelFrame, Button, Frame
 from tkinter import ttk
 
 class AminoAcidSelectionWidget:
@@ -30,7 +29,7 @@ class AminoAcidSelectionWidget:
                 if amino in self.amino_vars:
                     self.amino_vars[amino].set(1)
 
-        self.frame = Frame(self.root)
+        self.frame = ttk.Frame(self.root)
 
         self.create_amino_acid_groups()
 
@@ -43,8 +42,8 @@ class AminoAcidSelectionWidget:
         }
 
         for group, acids in grouped_amino_acids.items():
-            group_frame = LabelFrame(self.frame, text=group, padx=10, pady=10)
-            group_frame.pack(fill="x", padx=10, pady=5)
+            group_frame = ttk.LabelFrame(self.frame, text=group, padding=10)
+            group_frame.pack(fill="x", padx=2, pady=5)
 
             # Determine if all acids in the group are selected
             group_var_value = int(all(self.amino_vars[acid].get() == 1 for acid in acids))
@@ -56,7 +55,7 @@ class AminoAcidSelectionWidget:
 
             for i, acid in enumerate(acids):
                 checkbox = ttk.Checkbutton(group_frame, text=acid, variable=self.amino_vars[acid], command=lambda g=group, a=acids: self.update_group_state(g, a))
-                checkbox.grid(row=(i // 4) + 1, column=i % 4, sticky="w", padx=10, pady=5)
+                checkbox.grid(row=(i // 4) + 1, column=i % 4, sticky="w", padx=8, pady=3)
 
     def toggle_amino_group(self, group, acids):
         state = self.group_vars[group].get()
