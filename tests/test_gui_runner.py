@@ -649,3 +649,80 @@ def test_interface_chain_check_covers_every_selection():
 
     # Nothing selected at all still counts as too few to compare.
     assert interface_chain_check({"A": 0, "B": 0, GROUP_CHAINS: 0}, True) == "offer_all"
+
+
+def test_runner_copes_when_group_chains_is_absent(fake_phinder):
+    """A single-chain structure no longer offers the Group Chains box at all,
+    so the key is missing from the chain dict rather than present and zero."""
+    _, holder = fake_phinder
+    results = make_results(surfaceCalculation=1)
+    results["chains"] = {"A": 1}                 # no GROUP_CHAINS key
+    run(results, Report())
+    attrs = holder["instance"].attrs
+    assert attrs["chains"] == ["A"]
+    assert attrs["group_chains"] == 0
+
+
+def test_interface_check_without_a_group_chains_key():
+    from pHinder.gui.app import interface_chain_check
+
+    assert interface_chain_check({"A": 1}, True) == "too_few"
+    assert interface_chain_check({"A": 1, "B": 1}, True) is None
+
+
+def test_group_chains_hidden_for_a_single_chain_structure():
+    """Grouping is meaningless with one chain, and the box invites a click that
+    cannot mean anything."""
+    import tkinter as tk
+
+    import pytest
+
+    from pHinder.gui import phinder_main_gui as legacy
+    from pHinder.gui.app import PHinderApp
+    from pHinder.gui.runner import GROUP_CHAINS
+
+    groups = ["calculation_options", "sidechain_classification_options",
+              "network_options", "surface_options", "interface_options",
+              "virtual_screening_options", "advanced_options"]
+    try:
+        app = PHinderApp({g: getattr(legacy, f"default_{g}") for g in groups})
+    except tk.TclError:
+        pytest.skip("no display")
+    try:
+        app.file_widget.show_file_specific_options("Chains:", ["A", "B"])
+        app.update_idletasks()
+        assert GROUP_CHAINS in app.file_widget.option_widgets
+
+        app.file_widget.show_file_specific_options("Chains:", ["A"])
+        app.update_idletasks()
+        assert GROUP_CHAINS not in app.file_widget.option_widgets
+        assert GROUP_CHAINS not in app.file_widget.get_values()
+    finally:
+        app.destroy()
+
+
+def test_chain_boxes_get_hover_help_when_they_are_built():
+    """The chain row does not exist until a file is read, so its help has to be
+    attached at that point rather than when the form is laid out."""
+    import tkinter as tk
+
+    import pytest
+
+    from pHinder.gui import phinder_main_gui as legacy
+    from pHinder.gui.app import PHinderApp
+
+    groups = ["calculation_options", "sidechain_classification_options",
+              "network_options", "surface_options", "interface_options",
+              "virtual_screening_options", "advanced_options"]
+    try:
+        app = PHinderApp({g: getattr(legacy, f"default_{g}") for g in groups})
+    except tk.TclError:
+        pytest.skip("no display")
+    try:
+        app.file_widget.show_file_specific_options("Chains:", ["A", "B"])
+        app.update_idletasks()
+        for name, box in app.file_widget.option_widgets.items():
+            assert "<Enter>" in box.bind(), f"no hover help on the {name} box"
+        assert "<Enter>" in app.file_widget.options_label_widget.bind()
+    finally:
+        app.destroy()

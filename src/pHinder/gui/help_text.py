@@ -193,11 +193,17 @@ INPUT = {
         "Pick where the pHinderResults folder should be created."),
     "chains": (
         "Chains",
-        "Which chains to include. Interface classification needs at least two."),
+        "Which chains of the structure to include. Every chain is ticked when a "
+        "file is read; untick the ones you do not want.\n\n"
+        "Each selected chain is analysed on its own unless you tick Group Chains. "
+        "Interface classification compares chains, so it needs at least two."),
     "group_chains": (
-        "Group chains",
-        "Treat the selected chains as one structure rather than analysing each "
-        "chain separately."),
+        "Group Chains",
+        "Treat the selected chains as one structure: one triangulation, one "
+        "surface, one set of networks spanning them all. Left unticked, each "
+        "chain is triangulated and surfaced separately and the results are "
+        "reported per chain.\n\n"
+        "Only shown when the structure has more than one chain."),
     "residues": (
         "Residues",
         "The residues you pick here are the nodes of every network pHinder builds. "

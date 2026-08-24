@@ -16,6 +16,9 @@ class FilePathWidget:
 
         self.hidden_row_frame = None
         self.option_vars = {}  # Changed to a dictionary
+        self.option_widgets = {}     # option name -> its Checkbutton
+        self.options_label_widget = None
+        self.on_options_built = None  # callback: decorate the freshly built row
         self.create_widgets()
 
     def create_widgets(self):
@@ -70,8 +73,15 @@ class FilePathWidget:
 
         self.option_vars = {}  # Clear dictionary
 
+        # These widgets are built only once a file has been read, so anything that
+        # decorates them -- hover help, for one -- has to be applied here rather
+        # than when the form is first laid out. option_widgets makes them
+        # reachable, and on_options_built lets the caller do that decorating.
+        self.option_widgets = {}
+
         # Add label to the left of options
-        ttk.Label(self.hidden_row_frame, text=label).grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.options_label_widget = ttk.Label(self.hidden_row_frame, text=label)
+        self.options_label_widget.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
         # Populate new options with checkboxes (selected by default), max 10 per row
         row = 0
@@ -79,17 +89,24 @@ class FilePathWidget:
         for option in options:
             var = tk.IntVar(value=1)
             self.option_vars[option] = var  # Store in dictionary
-            ttk.Checkbutton(self.hidden_row_frame, text=option, variable=var).grid(row=row, column=col, padx=5, pady=2, sticky="w")
+            box = ttk.Checkbutton(self.hidden_row_frame, text=option, variable=var)
+            box.grid(row=row, column=col, padx=5, pady=2, sticky="w")
+            self.option_widgets[option] = box
             col += 1
             if col >= 11:  # Account for label in column 0
                 col = 1
                 row += 1
 
-        if self.extra_options:
+        # Options that only make sense across several chains (grouping) are left
+        # out when the structure has just one -- a lone "Group Chains" box
+        # invites a click that cannot mean anything.
+        if self.extra_options and len(options) > 1:
             for option in self.extra_options:
                 var = tk.IntVar(value=self.extra_options[option])
                 self.option_vars[option] = var  # Store in dictionary
-                ttk.Checkbutton(self.hidden_row_frame, text=option, variable=var).grid(row=row, column=col, padx=5, pady=2, sticky="w")
+                box = ttk.Checkbutton(self.hidden_row_frame, text=option, variable=var)
+                box.grid(row=row, column=col, padx=5, pady=2, sticky="w")
+                self.option_widgets[option] = box
                 col += 1
                 if col >= 11:  # Account for label in column 0
                     col = 1
@@ -97,6 +114,9 @@ class FilePathWidget:
 
         # Make the hidden row visible
         self.hidden_row_frame.grid()
+
+        if callable(getattr(self, "on_options_built", None)):
+            self.on_options_built(self)
 
     def get_values(self):
         if not self.option_vars:

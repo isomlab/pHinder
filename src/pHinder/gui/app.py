@@ -279,6 +279,9 @@ class PHinderApp(tk.Tk):
                          (self.file_widget.save_row, "browse_save")):
             tip_title, tip_body = help_text.INPUT[key]
             attach(self, row[2], tip_body, tip_title)  # the Browse button
+        # The chain boxes do not exist until a file has been read, so their help
+        # is attached each time that row is rebuilt.
+        self.file_widget.on_options_built = self._attach_chain_help
 
         card = theme.section(body, "Residues",
                              "pHinder defaults to the ionizable set: D, E, K, R and H.")
@@ -348,6 +351,18 @@ class PHinderApp(tk.Tk):
             var.set(self.defaults[group][key])
 
     # --- input helpers ------------------------------------------------------
+    def _attach_chain_help(self, widget):
+        """Give the chain row its hover help, once the boxes exist."""
+        chain_title, chain_body = help_text.INPUT["chains"]
+        group_title, group_body = help_text.INPUT["group_chains"]
+        if widget.options_label_widget is not None:
+            attach(self, widget.options_label_widget, chain_body, chain_title)
+        for name, box in widget.option_widgets.items():
+            if name == GROUP_CHAINS:
+                attach(self, box, group_body, group_title)
+            else:
+                attach(self, box, chain_body, chain_title)
+
     def _read_chains(self, file_path):
         """Chain ids from a PDB, for the chain checkboxes."""
         chains = []
