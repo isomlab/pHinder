@@ -728,12 +728,9 @@ def test_chain_boxes_get_hover_help_when_they_are_built():
         app.destroy()
 
 
-def test_the_defaults_note_appears_on_conditional_tabs_only():
-    """The note belongs on tabs that appear alongside a calculation.
-
-    Advanced is always present and is built by the same function, so it is easy
-    to give it the note by accident.
-    """
+def test_the_defaults_note_appears_on_every_parameter_tab():
+    """Every tab holding lab defaults carries the note -- the conditional five
+    plus Advanced -- while Input and Calculations do not."""
     import tkinter as tk
 
     import pytest
@@ -770,8 +767,9 @@ def test_the_defaults_note_appears_on_conditional_tabs_only():
         carrying = {app._nb.tab(i, "text")
                     for i in range(len(app._nb.tabs()))
                     if has_note(app.nametowidget(app._nb.tabs()[i]))}
-        assert carrying == set(TAB_REQUIRES)
-        assert "Advanced" not in carrying
+        assert carrying == set(TAB_REQUIRES) | {"Advanced"}
+        # Input and Calculations are not parameter tabs.
         assert "Input" not in carrying
+        assert "Calculations" not in carrying
     finally:
         app.destroy()
