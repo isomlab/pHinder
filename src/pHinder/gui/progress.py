@@ -82,7 +82,8 @@ class ProgressPanel(ttk.Frame):
             title, body = help_text.ACTIONS[key]
             attach(root, widget, body, title)
 
-        self.after(30, self._drain)
+        self._closing = False
+        self._drain_after = self.after(30, self._drain)
 
     # --- stages -------------------------------------------------------------
     def set_stages(self, stages):
@@ -127,13 +128,31 @@ class ProgressPanel(ttk.Frame):
 
     # --- Tk-thread handlers -------------------------------------------------
     def _drain(self):
+        if self._closing or not self.winfo_exists():
+            return
         try:
             while True:
                 kind, payload = self._q.get_nowait()
                 getattr(self, f"_apply_{kind}")(*payload)
         except queue.Empty:
             pass
-        self.after(30, self._drain)
+        except tk.TclError:              # widgets going away underneath us
+            return
+        self._drain_after = self.after(30, self._drain)
+
+    def shutdown(self):
+        """Stop the drain loop before the widget tree is torn down.
+
+        A pending after() that fires mid-destroy lands on half-deleted widgets,
+        which is what made closing during a run raise from inside destroy().
+        """
+        self._closing = True
+        if self._drain_after is not None:
+            try:
+                self.after_cancel(self._drain_after)
+            except Exception:
+                pass
+            self._drain_after = None
 
     def _apply_stage(self, key, state, note):
         row = self._rows.get(key)

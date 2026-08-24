@@ -502,3 +502,77 @@ def test_scrollhost_refresh_does_not_touch_sibling_tabs():
             "refreshing one tab reached into its sibling"
     finally:
         root.destroy()
+
+
+def test_closing_during_a_run_exits_cleanly(fake_phinder):
+    """The red X must work while a calculation is in flight.
+
+    Tearing the widget tree down with a queued after() callback and a tooltip
+    Toplevel still live raised TclError from inside destroy(), which left the
+    window half-dismantled and the process alive.
+    """
+    import tkinter as tk
+
+    import pytest
+
+    from pHinder.gui import phinder_main_gui as legacy
+    from pHinder.gui.app import PHinderApp
+
+    _, _ = fake_phinder
+    groups = ["calculation_options", "sidechain_classification_options",
+              "network_options", "surface_options", "interface_options",
+              "virtual_screening_options", "advanced_options"]
+    try:
+        app = PHinderApp({g: getattr(legacy, f"default_{g}") for g in groups})
+    except tk.TclError:
+        pytest.skip("no display")
+
+    closed = False
+    try:
+        app.vars["calculation_options"]["surfaceCalculation"].set(1)
+        app.file_widget.file_path.set("/data/1UBQ.pdb")
+        app.file_widget.show_file_specific_options("Chains:", ["A"])
+        for name, var in app.file_widget.option_vars.items():
+            var.set(1 if name == "A" else 0)
+        app.update_idletasks()
+
+        app.progress._run_clicked()
+        app.update_idletasks()
+
+        app.on_close()                     # exactly what the window button calls
+        closed = True
+
+        # A destroyed root cannot be queried at all -- that is the proof it went.
+        with pytest.raises(tk.TclError):
+            app.winfo_exists()
+    finally:
+        if not closed:
+            app.destroy()
+
+
+def test_progress_panel_drain_loop_can_be_stopped():
+    """A pending drain after() firing mid-destroy is what raised from destroy()."""
+    import tkinter as tk
+
+    import pytest
+
+    from pHinder.gui import theme
+    from pHinder.gui.progress import ProgressPanel
+
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("no display")
+    try:
+        root.fonts = theme.Fonts()
+        theme.apply_style(root.fonts)
+        panel = ProgressPanel(root, root.fonts, lambda: None, lambda: None)
+        panel.pack()
+        root.update_idletasks()
+
+        assert panel._drain_after is not None, "drain loop should be scheduled"
+        panel.shutdown()
+        assert panel._drain_after is None, "shutdown must cancel the pending drain"
+        assert panel._closing is True
+    finally:
+        root.destroy()

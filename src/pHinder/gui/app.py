@@ -126,6 +126,8 @@ class PHinderApp(tk.Tk):
         self._split = split
         self._build_tabs(left)
         self._refresh_stages()
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.bind("<Configure>", self._on_window_configure, add="+")
         # Size the split from what the tabs actually need. ttk places the sash
         # from the panes' requested widths, and a Canvas does not report the
         # width of the frame scrolling inside it -- so the left pane asked for
@@ -140,6 +142,48 @@ class PHinderApp(tk.Tk):
             return
         # after_idle so the tab has been mapped and sized before we measure it.
         self.after_idle(lambda: self.scroll.refresh(current))
+
+    def _on_window_configure(self, event):
+        """Re-fit the visible tab after a resize, coalesced to one pass."""
+        if event.widget is not self:
+            return
+        if getattr(self, "_resize_after", None):
+            try:
+                self.after_cancel(self._resize_after)
+            except Exception:
+                pass
+        self._resize_after = self.after(120, self._refit_current_tab)
+
+    def _refit_current_tab(self):
+        self._resize_after = None
+        try:
+            current = self._nb.nametowidget(self._nb.select())
+        except Exception:
+            return
+        self.scroll.refresh(current)
+
+    def on_close(self):
+        """Shut down in order, so the red X works during a run.
+
+        Tearing the widget tree down while a queued after() callback and a
+        tooltip Toplevel were still live raised TclError from inside destroy(),
+        which left the window half-dismantled and the process alive.
+        """
+        self._cancel.set()                      # ask the calculation to stop
+        try:
+            self.progress.shutdown()            # stop the drain loop
+        except Exception:
+            pass
+        self._hide_tip()                        # take down any tooltip window
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        finally:
+            try:
+                self.quit()
+            except Exception:
+                pass
 
     def _hide_tip(self):
         tip = getattr(self, "_tip", None)
@@ -190,6 +234,13 @@ class PHinderApp(tk.Tk):
             nb.add(frame, text=title)
             self._tabs[title] = frame
             builder(self.scroll.body(frame))
+            # <Map> fires whenever this tab actually becomes visible, which is
+            # the event we want: it does not depend on the notebook having
+            # reported a tab change, so it also covers re-showing a tab that was
+            # hidden and re-selecting the tab that was already current.
+            frame.bind("<Map>",
+                       lambda _e, f=frame: self.after_idle(lambda: self.scroll.refresh(f)),
+                       add="+")
 
     def _build_input_tab(self, body):
         card = theme.section(body, "Structure",

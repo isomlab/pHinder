@@ -101,11 +101,11 @@ class _Tip:
     def hide(self):
         self.cancel()
         if self._win is not None:
+            win, self._win = self._win, None
             try:
-                self._win.destroy()
+                win.destroy()
             except Exception:
                 pass
-            self._win = None
 
 
 def attach(root, widget, body, title=""):
