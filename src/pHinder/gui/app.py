@@ -15,7 +15,7 @@ from tkinter import ttk, messagebox
 
 from pHinder.gui import theme
 from pHinder.gui.progress import ProgressPanel, ACTIVE, DONE, FAILED, SKIPPED
-from pHinder.gui.runner import GROUP_CHAINS
+from pHinder.gui.runner import GROUP_CHAINS, NEEDS
 from pHinder.gui.file_open import FilePathWidget
 from pHinder.gui.dynamic_option_widget_amino_acid_selection import AminoAcidSelectionWidget
 
@@ -44,6 +44,17 @@ CALCULATIONS = [
     ("virtualScreenSurfacesCalculation", "Virtual screening surfaces",
      "Grid the surface, remove clashes, and parse void volumes for screening."),
 ]
+
+# A parameter tab is shown when the block that reads it will actually run.
+# Keyed on the block rather than the checkbox because the blocks are shared:
+# ticking only sidechain classification still runs the triangulation and the
+# surface, and those tabs hold the parameters being applied.
+TAB_REQUIRES = {
+    "Networks": "triangulate",
+    "Surfaces": "surface",
+    "Interfaces": "interface",
+    "Screening": "screen",
+}
 
 # Parameter groups -> the tab each belongs on.
 TAB_FOR_GROUP = {
@@ -116,6 +127,7 @@ class PHinderApp(tk.Tk):
         nb.pack(fill="both", expand=True)
         self._nb = nb
 
+        self._tabs = {}
         for title, builder in (
             ("Input", self._build_input_tab),
             ("Calculations", self._build_calculations_tab),
@@ -128,6 +140,7 @@ class PHinderApp(tk.Tk):
         ):
             frame = ttk.Frame(nb, style="TFrame")
             nb.add(frame, text=title)
+            self._tabs[title] = frame
             builder(self.scroll.body(frame))
 
     def _build_input_tab(self, body):
@@ -215,7 +228,32 @@ class PHinderApp(tk.Tk):
                 if self.vars.get("calculation_options", {}).get(k)
                 and self.vars["calculation_options"][k].get()]
 
+    def _active_blocks(self):
+        """Blocks that will run, given what is ticked."""
+        blocks = set()
+        for key, needed in NEEDS.items():
+            var = self.vars.get("calculation_options", {}).get(key)
+            if var and var.get():
+                blocks.update(needed)
+        return blocks
+
+    def _refresh_tabs(self):
+        """Hide parameter tabs whose parameters nothing will read."""
+        if not getattr(self, "_tabs", None):
+            return
+        active = self._active_blocks()
+        for title, block in TAB_REQUIRES.items():
+            frame = self._tabs.get(title)
+            if frame is None:
+                continue
+            state = "normal" if block in active else "hidden"
+            try:
+                self._nb.tab(frame, state=state)
+            except tk.TclError:
+                pass
+
     def _refresh_stages(self):
+        self._refresh_tabs()
         chosen = self._selected_calculations()
         self.progress.set_stages(chosen)
         if chosen:
