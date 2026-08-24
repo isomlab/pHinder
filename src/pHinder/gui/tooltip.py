@@ -12,6 +12,9 @@ from pHinder.gui import theme
 
 DELAY_MS = 450
 MAX_WIDTH = 380
+# Offset from the pointer, far enough that the tip never lands under the cursor
+# (which would fire <Leave> on the widget and flicker the tip on and off).
+CURSOR_DX, CURSOR_DY = 16, 22
 
 
 class _Tip:
@@ -59,14 +62,19 @@ class _Tip:
 
         win.update_idletasks()
         w, h = win.winfo_reqwidth(), win.winfo_reqheight()
-        x = widget.winfo_rootx() + 18
-        y = widget.winfo_rooty() + widget.winfo_height() + 6
-        # Keep the whole tip on screen: flip above / pull left as needed.
+
+        # Anchor to the pointer, not to the widget's box. Help is attached to
+        # whole section cards as well as to single fields, and the Residues card
+        # is 500px tall -- anchoring to its bottom edge put the tip half a
+        # screen from whatever the user was actually pointing at.
+        px, py = widget.winfo_pointerxy()
+        x, y = px + CURSOR_DX, py + CURSOR_DY
+
         sw, sh = widget.winfo_screenwidth(), widget.winfo_screenheight()
         if x + w > sw - 8:
-            x = max(8, sw - w - 8)
+            x = max(8, px - w - 8)          # flip to the left of the pointer
         if y + h > sh - 8:
-            y = widget.winfo_rooty() - h - 6
+            y = max(8, py - h - 10)         # flip above the pointer
         win.wm_geometry(f"+{int(x)}+{int(y)}")
         win.lift()
         win.update_idletasks()
