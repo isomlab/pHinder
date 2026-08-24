@@ -576,3 +576,43 @@ def test_progress_panel_drain_loop_can_be_stopped():
         assert panel._closing is True
     finally:
         root.destroy()
+
+
+def test_file_and_save_path_have_distinct_help():
+    """Both fields once shared one tooltip attached to the whole card."""
+    from pHinder.gui import help_text
+
+    file_title, file_body = help_text.INPUT["file_path"]
+    save_title, save_body = help_text.INPUT["save_path"]
+    assert file_body != save_body
+    assert file_title != save_title
+
+
+def test_residue_help_frames_the_selection_as_network_nodes():
+    from pHinder.gui import help_text
+
+    body = help_text.INPUT["residues"][1].lower()
+    assert "network" in body
+
+
+def test_surface_help_says_ligands_are_optional():
+    """surfaceLigands() and writeLigandSurfaces() both no-op unless
+    saveLigandSurfaces is set, so the help must not promise ligand surfaces."""
+    from pHinder.gui import help_text
+
+    body = help_text.CALCULATIONS["surfaceCalculation"][1].lower()
+    assert "only if" in body
+    assert "save ligand surfaces" in body
+
+
+def test_dependent_calculations_pull_in_their_prerequisites():
+    """Ticking classification or interfaces must not require ticking the rest."""
+    from pHinder.gui import runner
+
+    assert runner.NEEDS["sidechainClassification"] == ["triangulate", "surface", "classify"]
+    assert runner.NEEDS["interfaceClassification"] == [
+        "triangulate", "surface", "classify", "interface"]
+    for key in ("sidechainClassification", "interfaceClassification"):
+        body = runner and __import__(
+            "pHinder.gui.help_text", fromlist=["x"]).CALCULATIONS[key][1].lower()
+        assert "runs the networks" in body, f"{key} help should say what it runs for you"

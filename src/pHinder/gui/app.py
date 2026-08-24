@@ -36,13 +36,14 @@ CALCULATIONS = [
     ("topologyCalculation", "Residue network topology",
      "Triangulate the selected residues, prune to a network, and analyse its topology."),
     ("surfaceCalculation", "Molecular surface",
-     "Compute the surface used for depth and exposure measurements."),
+     "Compute the surface used for depth and exposure measurements. Ligands are "
+     "surfaced only if you tick that option on the Surfaces tab."),
     ("sidechainClassification", "Sidechain classification",
-     "Classify each selected sidechain as core, margin, or surface. Needs the "
-     "triangulation and the surface, and will compute them if not ticked above."),
+     "Classify each selected sidechain as core, margin, or exposed. Runs the "
+     "networks and the surface for you — neither needs ticking."),
     ("interfaceClassification", "Interface classification",
-     "Identify interface sidechains between the selected chains. Needs the "
-     "classification, and will compute it if not ticked above."),
+     "Identify interface sidechains between the selected chains. Runs the "
+     "networks, the surface and the classification for you — none need ticking."),
     ("virtualScreenSurfacesCalculation", "Virtual screening surfaces",
      "Grid the surface, remove clashes, and parse void volumes for screening."),
 ]
@@ -249,7 +250,16 @@ class PHinderApp(tk.Tk):
                                           options_label="Chains:",
                                           extra_options={"Group Chains": 0})
         self.file_widget.frame.pack(fill="x", anchor="w")
-        attach(self, card, *reversed(help_text.INPUT["file_path"]))
+        # NB: do not unpack into `body` here -- it is this function's parameter.
+        for row, key in ((self.file_widget.file_row, "file_path"),
+                         (self.file_widget.save_row, "save_path")):
+            tip_title, tip_body = help_text.INPUT[key]
+            for widget in row[:2]:                     # label and entry
+                attach(self, widget, tip_body, tip_title)
+        for row, key in ((self.file_widget.file_row, "browse_file"),
+                         (self.file_widget.save_row, "browse_save")):
+            tip_title, tip_body = help_text.INPUT[key]
+            attach(self, row[2], tip_body, tip_title)  # the Browse button
 
         card = theme.section(body, "Residues",
                              "pHinder defaults to the ionizable set: D, E, K, R and H.")

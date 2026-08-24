@@ -23,19 +23,26 @@ CALCULATIONS = {
         "bonds and network parity. Writes the triangulation and the pruned network."),
     "surfaceCalculation": (
         "Molecular surface",
-        "Builds the pHinder molecular surface for the selected chains, and surfaces "
-        "any ligands. Classification, interfaces and screening all need this surface "
-        "and will build it themselves if you do not tick it here."),
+        "Builds the pHinder molecular surface for the selected chains. Ligands are "
+        "surfaced only if you ask for it — tick \u201cSave ligand surfaces\u201d on the "
+        "Surfaces tab, which controls the ligand calculation itself and not just "
+        "whether it is written out. Classification, interfaces and screening all "
+        "need this surface and build it themselves if you do not tick it here."),
     "sidechainClassification": (
         "Sidechain classification",
         "Measures how deep each selected sidechain sits relative to the surface and "
-        "labels it core, margin, or exposed using the Classification cutoffs. "
-        "Needs the triangulation and the surface."),
+        "labels it core, margin, or exposed using the Classification cutoffs.\n\n"
+        "Runs the networks and the molecular surface for you first — you do not "
+        "need to tick either. Anything already ticked is computed once and shared, "
+        "never repeated."),
     "interfaceClassification": (
         "Interface classification",
         "Flags sidechains lying within the interface distance filter of another "
-        "chain. Needs the classification, so it runs that first if you have not "
-        "ticked it."),
+        "chain. Select more than one chain on the Input tab for this to mean "
+        "anything.\n\n"
+        "Runs the networks, the molecular surface and the sidechain classification "
+        "for you first — none of them need ticking. Anything already ticked is "
+        "computed once and shared, never repeated."),
     "virtualScreenSurfacesCalculation": (
         "Virtual screening surfaces",
         "Samples points from the surface — stepping inward and outward by the "
@@ -95,7 +102,9 @@ PARAMETERS = {
         "short chains, peptides, and fragments that the normal test discards."),
     "SAVE_LIGAND_SURFACES": (
         "Save ligand surfaces",
-        "Write the surfaces computed for ligands as well as for the protein."),
+        "Surface the ligands as well as the protein, and write the result. Despite "
+        "the name this gates the ligand calculation itself, not just the writing: "
+        "with it off, no ligand surface is computed at all."),
     "WRITE_SURFACE_CREATION_ANIMATION": (
         "Write surface creation animation",
         "Emit the intermediate states of surface construction so the build can be "
@@ -165,13 +174,23 @@ PARAMETERS = {
 
 INPUT = {
     "file_path": (
-        "Structure file",
-        "The PDB or mmCIF file to analyse. Chain checkboxes appear once a file is "
-        "chosen. Gzipped files are handled."),
+        "File Path — the structure to analyse",
+        "The PDB or mmCIF file pHinder reads. Chain checkboxes appear underneath "
+        "once a file is chosen, and the format is taken from the extension "
+        "(.cif is read as mmCIF, .gz is unzipped)."),
     "save_path": (
-        "Save location",
-        "Results are written to a pHinderResults folder inside this directory. "
-        "Left empty, they go beside the structure file."),
+        "Save Path — where results go",
+        "The folder pHinder writes into. It creates a pHinderResults subfolder "
+        "there and puts the triangulation, surfaces, classification results and "
+        "the parameter log inside. Leave it empty and results land beside the "
+        "structure file instead."),
+    "browse_file": (
+        "Browse for a structure",
+        "Pick the PDB or mmCIF file to analyse. Reading it fills in the chain "
+        "checkboxes below."),
+    "browse_save": (
+        "Browse for an output folder",
+        "Pick where the pHinderResults folder should be created."),
     "chains": (
         "Chains",
         "Which chains to include. Interface classification needs at least two."),
@@ -181,10 +200,13 @@ INPUT = {
         "chain separately."),
     "residues": (
         "Residues",
-        "Which sidechains are triangulated and classified. pHinder defaults to the "
-        "ionizable set — D, E, K, R, H. Selecting a set that matches one of "
-        "pHinder's named sets uses that name; any other combination becomes a "
-        "custom set."),
+        "The residues you pick here are the nodes of every network pHinder builds. "
+        "Their sidechains are triangulated, the triangulation is pruned to the "
+        "networks, and those networks are what get analysed and classified — so "
+        "this selection sets what the whole calculation is about. pHinder defaults "
+        "to the ionizable set (D, E, K, R, H), which gives the proton-binding "
+        "networks. A selection matching one of pHinder's named sets uses that name; "
+        "any other combination becomes a custom set."),
 }
 
 ACTIONS = {

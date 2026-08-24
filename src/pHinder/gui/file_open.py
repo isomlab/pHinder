@@ -19,8 +19,12 @@ class FilePathWidget:
         self.create_widgets()
 
     def create_widgets(self):
+        # Rows are kept on the instance so each can carry its own hover help --
+        # as locals they were unreachable, and both fields ended up sharing one
+        # tooltip attached to the whole card.
         # File Path Row
-        ttk.Label(self.frame, text="File Path:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+        file_path_label = ttk.Label(self.frame, text="File Path:")
+        file_path_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)
         file_path_entry = ttk.Entry(self.frame, textvariable=self.file_path, width=50)
         file_path_entry.grid(row=0, column=1, padx=5, pady=5)
 
@@ -28,12 +32,16 @@ class FilePathWidget:
         browse_file_button.grid(row=0, column=2, padx=5, pady=5)
 
         # Save Path Row
-        ttk.Label(self.frame, text="Save Path:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+        save_path_label = ttk.Label(self.frame, text="Save Path:")
+        save_path_label.grid(row=1, column=0, sticky="w", padx=5, pady=5)
         save_path_entry = ttk.Entry(self.frame, textvariable=self.save_path, width=50)
         save_path_entry.grid(row=1, column=1, padx=5, pady=5)
 
         browse_save_button = ttk.Button(self.frame, text="Browse", command=self.browse_save_path)
         browse_save_button.grid(row=1, column=2, padx=5, pady=5)
+
+        self.file_row = (file_path_label, file_path_entry, browse_file_button)
+        self.save_row = (save_path_label, save_path_entry, browse_save_button)
 
         # Hidden Row for File Specific Options
         self.hidden_row_frame = ttk.Frame(self.frame)
