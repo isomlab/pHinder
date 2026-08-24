@@ -132,6 +132,11 @@ class PHinderApp(tk.Tk):
         # 301px while the file row alone needs 661, and Browse was clipped.
         self.after_idle(self._fit_layout)
 
+    def _hide_tip(self):
+        tip = getattr(self, "_tip", None)
+        if tip is not None:
+            tip.hide()
+
     def _fit_layout(self):
         """Open wide enough for the widest tab, with the sash placed to match."""
         self.update_idletasks()
@@ -159,6 +164,7 @@ class PHinderApp(tk.Tk):
         nb = ttk.Notebook(parent)
         nb.pack(fill="both", expand=True)
         self._nb = nb
+        nb.bind("<<NotebookTabChanged>>", lambda e: self._hide_tip(), add="+")
 
         self._tabs = {}
         for title, builder in (

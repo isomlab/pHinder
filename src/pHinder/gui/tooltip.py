@@ -15,6 +15,9 @@ MAX_WIDTH = 380
 # Offset from the pointer, far enough that the tip never lands under the cursor
 # (which would fire <Leave> on the widget and flicker the tip on and off).
 CURSOR_DX, CURSOR_DY = 16, 22
+# Nothing should stay on screen this long. A backstop, in case some path still
+# manages to leave one up.
+AUTO_HIDE_MS = 12000
 
 
 class _Tip:
@@ -24,20 +27,34 @@ class _Tip:
         self.root = root
         self._win = None
         self._after = None
-        self._title = None
-        self._body = None
+        self._auto = None
+        self._install_global()
+
+    def _install_global(self):
+        """Dismiss on anything that means the pointer has moved on.
+
+        <Leave> alone is not enough: clicking a notebook tab unmaps the hovered
+        widget without ever sending it a Leave, so the tip stayed up over the
+        newly shown tab until the mouse happened to cross another widget.
+        """
+        self.root.bind_all("<ButtonPress>", lambda e: self.hide(), add="+")
+        self.root.bind_all("<Key>", lambda e: self.hide(), add="+")
+        self.root.bind("<FocusOut>", lambda e: self.hide(), add="+")
+        self.root.bind("<Configure>", lambda e: self.hide(), add="+")
 
     def schedule(self, widget, title, body):
         self.cancel()
         self._after = widget.after(DELAY_MS, lambda: self.show(widget, title, body))
 
     def cancel(self):
-        if self._after is not None:
-            try:
-                self.root.after_cancel(self._after)
-            except Exception:
-                pass
-            self._after = None
+        for attr in ("_after", "_auto"):
+            token = getattr(self, attr)
+            if token is not None:
+                try:
+                    self.root.after_cancel(token)
+                except Exception:
+                    pass
+                setattr(self, attr, None)
 
     def show(self, widget, title, body):
         self.hide()
@@ -79,6 +96,7 @@ class _Tip:
         win.lift()
         win.update_idletasks()
         self._win = win
+        self._auto = self.root.after(AUTO_HIDE_MS, self.hide)
 
     def hide(self):
         self.cancel()
@@ -100,3 +118,5 @@ def attach(root, widget, body, title=""):
     widget.bind("<Enter>", lambda e: tip.schedule(widget, title, body), add="+")
     widget.bind("<Leave>", lambda e: tip.hide(), add="+")
     widget.bind("<ButtonPress>", lambda e: tip.hide(), add="+")
+    # A hidden tab unmaps its children without sending <Leave>.
+    widget.bind("<Unmap>", lambda e: tip.hide(), add="+")

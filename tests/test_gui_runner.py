@@ -354,3 +354,66 @@ def test_margin_cutoff_sits_between_core_and_the_surface():
 
     sc = legacy.default_sidechain_classification_options
     assert sc["CORE_CUTOFF"] < sc["MARGIN_CUTOFF"] < 0
+
+
+def test_tooltip_does_not_survive_a_tab_change():
+    """A hidden tab unmaps its children without sending <Leave>.
+
+    The tip is a topmost window, so one left behind sits over the newly shown
+    tab until the pointer happens to cross another widget -- which looked like
+    the tab failing to draw its own contents.
+
+    Drives the real window, so it exercises the app's own binding rather than
+    one the test installed.
+    """
+    import tkinter as tk
+
+    import pytest
+
+    try:
+        probe = tk.Tk()
+    except tk.TclError:                       # no display
+        pytest.skip("no display")
+    probe.destroy()
+
+    from pHinder.gui import phinder_main_gui as legacy
+    from pHinder.gui.app import PHinderApp
+
+    groups = ["calculation_options", "sidechain_classification_options",
+              "network_options", "surface_options", "interface_options",
+              "virtual_screening_options", "advanced_options"]
+    app = PHinderApp({g: getattr(legacy, f"default_{g}") for g in groups})
+    try:
+        for var in app.vars["calculation_options"].values():
+            var.set(1)
+        app.update_idletasks()
+
+        names = [app._nb.tab(i, "text") for i in range(len(app._nb.tabs()))]
+        first, second = names.index("Screening"), names.index("Networks")
+        app._nb.select(first)
+        app.update_idletasks()
+
+        label = None
+        def find(w):
+            nonlocal label
+            if label is None and "<Enter>" in w.bind() and w.winfo_class() == "TLabel":
+                label = w
+            for child in w.winfo_children():
+                find(child)
+        find(app.nametowidget(app._nb.tabs()[first]))
+        assert label is not None, "no widget with hover help on the Screening tab"
+
+        app._tip = getattr(app, "_tip", None)
+        from pHinder.gui.tooltip import _Tip
+        if app._tip is None:
+            app._tip = _Tip(app)
+        app._tip.show(label, "Title", "some help")
+        app.update_idletasks()
+        assert app._tip._win is not None, "tip should be showing"
+
+        app._nb.select(second)
+        app.update_idletasks()
+        app.update()
+        assert app._tip._win is None, "tip must not outlive the tab that raised it"
+    finally:
+        app.destroy()
