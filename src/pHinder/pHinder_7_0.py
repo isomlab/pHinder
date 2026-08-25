@@ -2486,6 +2486,12 @@ class pHinder:
 
 			for chain in self.chains:
 
+				# The by-chain triangulation, fetched the same way as everywhere
+				# else in the per-chain code. Without this the no-surface branch
+				# below reaches for a bare mutatedTscTriangulation that nothing
+				# in this scope ever assigns.
+				mutatedTscTriangulation = self.triangulations_bychain[chain][1]
+
 				tscVertexDictSelection = {}
 				for key in self.tscVertexDictSelection:
 					if key[1] == chain:
