@@ -575,7 +575,7 @@ class pHinder:
 		self.reducedNetworkRepresentation = 1
 		self.highResolutionSurface = 1
 		self.saveSurface = 1
-		self.allowSmallSurfaces = 0
+		self.allowSmallSurfaces = 1
 		self.saveLigandSurfaces = 1
 		self.saveNetworkTriangulation = 1
 		self.residueSet = "allSet"

@@ -86,7 +86,7 @@ def parse_arguments():
     parser.add_argument("--minarea", type=int, default=10, help="Set minArea (default: 10)")
     parser.add_argument("--high-resolution-surface", type=int, default=1, help="Enable HIGH_RESOLUTION_SURFACE (default: 1)")
     parser.add_argument("--save-surface", type=int, default=1, help="Enable SAVE_SURFACE (default: 1)")
-    parser.add_argument("--allow-small-surfaces", type=int, default=0, help="Enable ALLOW_SMALL_SURFACES (default: 0)")
+    parser.add_argument("--allow-small-surfaces", type=int, default=1, help="Facet-count floor for keeping a surface piece; 0 falls back to 50 (default: 1, keep every piece)")
     parser.add_argument("--save-ligand-surfaces", type=int, default=0, help="Enable SAVE_LIGAND_SURFACES (default: 0)")
     parser.add_argument("--write-surface-creation-animation", type=int, default=0, help="Enable WRITE_SURFACE_CREATION_ANIMATION (default: 0)")
 
