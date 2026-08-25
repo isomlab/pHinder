@@ -9,7 +9,48 @@ from pHinder._vendor.determinants import det3x3, det4x4
 from decimal import *
 import numpy as np
 from collections.abc import Sequence, Iterable
+import hashlib
+import os
+import random
+import struct
 from typing import Any, Tuple, Union, Optional
+
+# ---------------------------------------------------------------------------
+# Where jostling gets its randomness
+#
+# Jostling exists to put points in general position: without it the orientation
+# predicates are ambiguous at exact zero and the rotation around facets can
+# cycle instead of terminating. That is not in question here and none of it
+# changes below -- same epsilon, same uniform draw in [-eps, +eps], same call
+# sites, same number of draws in the same order.
+#
+# The only thing that changes is where the numbers come from. Drawing them from
+# the process-global unseeded RNG made every run of the same structure produce a
+# slightly different answer. Drawing them from an RNG seeded on the vertex's own
+# coordinates and its jostle count makes the perturbation a deterministic
+# function of the input: the same structure gets the same nudge, each retry
+# still gets a different one, and degeneracy is escaped exactly as before.
+#
+# TO REVERT, either of these restores the previous behaviour exactly:
+#     * set the environment variable PHINDER_JOSTLE=random
+#     * or set JOSTLE_DETERMINISTIC = False below
+# Nothing else in the file depends on the choice.
+# ---------------------------------------------------------------------------
+
+JOSTLE_DETERMINISTIC = os.environ.get("PHINDER_JOSTLE", "deterministic").lower() != "random"
+
+
+def _jostle_rng(x, y, z, count):
+    """An RNG determined by a vertex's position and how often it has been moved.
+
+    blake2b rather than hash() so the seed does not depend on the interpreter's
+    hash seed, the platform, or the Python version.
+    """
+    payload = struct.pack("<dddq", x, y, z, count)
+    seed = int.from_bytes(hashlib.blake2b(payload, digest_size=8).digest(), "little")
+    return random.Random(seed)
+
+
 
 # Determine the appropriate value for zero from a point set
 def geom_tol(*points: Any, factor: float = 10.0) -> float:
@@ -86,8 +127,11 @@ class Vertex:
         and—for a paraboloid lift—recompute z if desired.
         """
         if not self.no_more_jostling:
-            import random
-            r = random.random  # local ref is slightly faster than full lookup
+            if JOSTLE_DETERMINISTIC:
+                self._jostle_count = getattr(self, "_jostle_count", 0) + 1
+                r = _jostle_rng(self.x, self.y, self.z, self._jostle_count).random
+            else:
+                r = random.random  # local ref is slightly faster than full lookup
             self.x += (r()*2 - 1) * eps
             self.y += (r()*2 - 1) * eps
 
@@ -224,6 +268,14 @@ class Vertex4D:
         
         self.nJostles += 1
 
+        # Same switch as Vertex.jostle above: deterministic by default, drawn
+        # from this vertex's position and its jostle count, so the sequence of
+        # perturbations is a function of the input rather than of the process.
+        # Set PHINDER_JOSTLE=random (or JOSTLE_DETERMINISTIC = False) to go back
+        # to the global unseeded choice().
+        _choice = (_jostle_rng(self.x, self.y, self.z, self.nJostles).choice
+                   if JOSTLE_DETERMINISTIC else choice)
+
         # Use the random module to generate random signs and dividends.
         ###############################################################
         signs = [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
@@ -236,8 +288,8 @@ class Vertex4D:
 
         # Jostle X.
         ###########
-        factor = choice(seq)
-        sign = choice(signs)
+        factor = _choice(seq)
+        sign = _choice(signs)
         if sign:
             self.x += 1./factor
         else:
@@ -245,8 +297,8 @@ class Vertex4D:
 
         # Jostle Y.
         ###########
-        factor = choice(seq)
-        sign = choice(signs)
+        factor = _choice(seq)
+        sign = _choice(signs)
         if sign:
             self.y += 1./factor
         else:
@@ -254,8 +306,8 @@ class Vertex4D:
 
         # Jostle Z.
         ###########
-        factor = choice(seq)
-        sign = choice(signs)
+        factor = _choice(seq)
+        sign = _choice(signs)
         if sign:
             self.z += 1./factor
         else:
@@ -1400,7 +1452,12 @@ def circumSphere(
             else:
                 # fallback: add tiny random perturbation if no jostle method
                 if hasattr(v, "x") and hasattr(v, "y") and hasattr(v, "z"):
-                    perturb = (np.random.uniform(-1, 1, size=3) * jitter_scale)
+                    if JOSTLE_DETERMINISTIC:
+                        rng = _jostle_rng(v.x, v.y, v.z, attempt + 1)
+                        perturb = [(rng.random() * 2 - 1) * jitter_scale
+                                   for _ in range(3)]
+                    else:
+                        perturb = (np.random.uniform(-1, 1, size=3) * jitter_scale)
                     v.x += perturb[0]
                     v.y += perturb[1]
                     v.z += perturb[2]

@@ -263,3 +263,87 @@ def test_a_file_that_is_not_renumbered_reports_its_own_numbers(tmp_path):
 
     for r in protein.residues.values():
         assert r.num_original == str(r.num), "nothing was renumbered"
+
+
+def test_the_reported_depth_is_the_one_the_class_was_decided_on():
+    """The spreadsheet used to recover depth from a "%5.1f" rendering of it, so
+    -3.04 and -2.96 both arrived as -3.0 and the number could not explain why one
+    residue is core and the other margin. The writer reads the instance now."""
+    import inspect
+
+    from pHinder.pHinder_7_0 import pHinder
+
+    src = inspect.getsource(pHinder.writeSidechainClassificationResults)
+    assert "ci.depth" in src, "depth comes from the classification instance"
+    assert "float(fullSplit" not in src, "not parsed back out of the printed string"
+
+
+def test_the_class_letter_is_kept_on_the_instance():
+    from pHinder.pHinder_7_0 import sidechainClassification
+
+    import inspect
+    src = inspect.getsource(sidechainClassification.setClassificationString)
+    assert "self.locationKey = locationKey" in src
+
+
+# Deterministic jostling -----------------------------------------------------
+# Jostling is required: without it the orientation predicates are ambiguous at
+# exact zero and facet rotation can cycle instead of terminating. None of that
+# changes. What changed is only where the random numbers come from, so that the
+# same structure gets the same perturbation. The switch below restores the old
+# behaviour exactly, and these tests pin both directions.
+
+
+def test_the_same_vertex_gets_the_same_nudge_every_time():
+    from pHinder._vendor import compGeometry as cg
+
+    def nudge():
+        v = cg.Vertex((1.234, 5.678, 9.012))
+        v.jostle()
+        return (v.x, v.y, v.z)
+
+    assert nudge() == nudge(), "same input, same perturbation"
+
+
+def test_a_retry_still_moves_the_vertex_somewhere_new():
+    """Escaping degeneracy depends on repeated jostles differing."""
+    from pHinder._vendor import compGeometry as cg
+
+    v = cg.Vertex((1.234, 5.678, 9.012))
+    seen = []
+    for _ in range(4):
+        v.jostle()
+        seen.append((v.x, v.y, v.z))
+    assert len(set(seen)) == 4, "each retry has to land somewhere new"
+
+
+def test_different_vertices_get_different_nudges():
+    from pHinder._vendor import compGeometry as cg
+
+    a = cg.Vertex((1.0, 2.0, 3.0)); a.jostle()
+    b = cg.Vertex((1.5, 2.5, 3.5)); b.jostle()
+    assert (a.x - 1.0, a.y - 2.0) != (b.x - 1.5, b.y - 2.5)
+
+
+def test_the_revert_switch_is_wired_to_both_jostles():
+    """PHINDER_JOSTLE=random must put every draw back on the global RNG."""
+    import inspect
+
+    from pHinder._vendor import compGeometry as cg
+
+    assert cg.JOSTLE_DETERMINISTIC is True, "deterministic is the default"
+    for method in (cg.Vertex.jostle, cg.Vertex4D.jostle):
+        src = inspect.getsource(method)
+        assert "JOSTLE_DETERMINISTIC" in src, f"{method.__qualname__} not switched"
+    assert 'os.environ.get("PHINDER_JOSTLE"' in inspect.getsource(cg)
+
+
+def test_the_perturbation_is_still_bounded_by_eps():
+    """The revert has to be a change of source, not of magnitude."""
+    from pHinder._vendor import compGeometry as cg
+
+    eps = 1e-3
+    for _ in range(20):
+        v = cg.Vertex((0.0, 0.0, 0.0))
+        v.jostle(eps=eps)
+        assert abs(v.x) <= eps and abs(v.y) <= eps and abs(v.z) <= eps
