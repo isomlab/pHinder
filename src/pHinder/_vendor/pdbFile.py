@@ -297,6 +297,14 @@ class Atom:
                 self.chain_identifier = atom_detail
                 self.cif_dictionary["_atom_site.label_asym_id"] = self.chain_identifier
 
+            # auth_asym_id is what a viewer shows and what a person means by
+            # "chain R". It sits after label_asym_id in the atom_site loop, so
+            # assigning it here overwrites the label value for this row, and
+            # falls back to the label when a file carries no author ids.
+            if cif_option == "_atom_site.auth_asym_id":
+                self.chain_identifier = atom_detail
+                self.cif_dictionary["_atom_site.auth_asym_id"] = self.chain_identifier
+
             if cif_option == "_atom_site.label_entity_id":
                 self.entity_id = atom_detail
                 self.cif_dictionary["_atom_site.label_entity_id"] = self.entity_id
@@ -305,6 +313,16 @@ class Atom:
                 try:
                     self.residue_sequence_number = int(atom_detail)
                     self.cif_dictionary["_atom_site.label_seq_id"] = self.residue_sequence_number
+                except Exception:
+                    pass
+
+            # Author residue numbering, for the same reason and with the same
+            # ordering. Chain and residue number have to come from one system
+            # or a residue ends up identified by a pair that matches nothing.
+            if cif_option == "_atom_site.auth_seq_id":
+                try:
+                    self.residue_sequence_number = int(atom_detail)
+                    self.cif_dictionary["_atom_site.auth_seq_id"] = self.residue_sequence_number
                 except Exception:
                     pass
 
@@ -1385,7 +1403,12 @@ class PDBfile:
         self.format = "pdb"
         self.pdbCode = "NONE"
 
+        # Strip a compression suffix before looking at the extension, or
+        # "8hs2.cif.gz" matches neither branch, falls through to the default,
+        # and a CIF gets handed to the PDB parser.
         lower_name = pdbFileName.lower()
+        if lower_name.endswith(".gz"):
+            lower_name = lower_name[:-len(".gz")]
         if lower_name.endswith(".cif") or lower_name.endswith(".mmcif"):
             self.format = "cif"
             self.pdbCode = pdbFileName.split(".cif")[0].split(".mmcif")[0]
@@ -1718,33 +1741,45 @@ class PDBfile:
             "_atom_site.pdbx_PDB_model_num": False
         }
 
-        # Read file and detect which CIF options are present
+        # Read the file, recording the _atom_site column headers IN THE ORDER THE
+        # FILE DECLARES THEM. The atom lines are matched to columns positionally,
+        # so the order has to come from the file: cif_options_all is a fixed
+        # 26-key superset, and any file that omits a column -- almost every
+        # PDB-deposited mmCIF omits the five *_esd fields -- would otherwise have
+        # every field after the first gap read out of the wrong column.
+        column_order = []
+
+        def note(candidate):
+            if candidate.startswith("_atom_site."):
+                if candidate in self.cif_options_all:
+                    self.cif_options_all[candidate] = True
+                if candidate not in column_order:
+                    column_order.append(candidate)
+
         if self.zip and self.pdbFilePath and self.pdbFileName:
             f = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb")
             for line in f:
                 line = line.decode()
                 self.pdbFileLines.append(line)
-                possible_cif_option = line.strip()
-                if possible_cif_option in self.cif_options_all:
-                    self.cif_options_all[possible_cif_option] = True
+                note(line.strip())
         elif pdbFileAsString:
             for line in pdbFileAsString.split("\n"):
-                possible_cif_option = line
-                if possible_cif_option in self.cif_options_all:
-                    self.cif_options_all[possible_cif_option] = True
+                note(line.strip())
                 self.pdbFileLines.append(line + "\n")
         elif self.pdbFilePath and self.pdbFileName:
             f = open(self.pdbFilePath + self.pdbFileName, "r")
             for line in f:
                 self.pdbFileLines.append(line)
-                possible_cif_option = line.strip()
-                if possible_cif_option in self.cif_options_all:
-                    self.cif_options_all[possible_cif_option] = True
+                note(line.strip())
+
+        # What the atom parser walks. Falls back to the fixed order only when a
+        # file declares no headers at all.
+        self.cif_columns = {k: True for k in column_order} or self.cif_options_all
 
         # Parse atoms and hetatoms
         for line in self.pdbFileLines:
             if line[0:4] == "ATOM":
-                atom = Atom(cif_line=line, cif_options=self.cif_options_all)
+                atom = Atom(cif_line=line, cif_options=self.cif_columns)
                 self.atoms[atom.atom_serial] = atom
                 if atom.residue_key in self.residues:
                     self.residues[atom.residue_key].addatom(atom)
@@ -1758,7 +1793,7 @@ class PDBfile:
                     self.chains.append(atom.chain_identifier)
 
             if line[0:6] == "HETATM":
-                atom = Atom(cif_line=line, cif_options=self.cif_options_all)
+                atom = Atom(cif_line=line, cif_options=self.cif_columns)
                 self.hetatoms[atom.atom_serial] = atom
                 if atom.residue_key in self.het_residues:
                     self.het_residues[atom.residue_key].addatom(atom)
