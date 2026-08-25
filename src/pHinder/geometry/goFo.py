@@ -455,6 +455,17 @@ def pruneTriangulationGoFo(triangulation, maxNetworkEdgeLength, minNetworkEdgeLe
     networkNodes = []
     for node in triangulation:
         
+        # Pseudo-atoms are the template tetrahedron convexHull4D seeds the hull
+        # with. They are not residues and belong to no network. A large query set
+        # buries them, but a narrow residue selection -- acidicSet, basicSet,
+        # ionizableSetNoCys -- leaves so few real vertices that they survive into
+        # the triangulation, and every line below would dereference a residue
+        # that was never there. Drop their edges so nothing traverses into them.
+        ########################################################################
+        if triangulation[node].s1.data.residue is None:
+            triangulation[node].s2s = []
+            continue
+        
         # Save the node in the dictionary of complete triangulation nodes.
         ##################################################################
         nodeSaveResNum = triangulation[node].s1.data.residue.num

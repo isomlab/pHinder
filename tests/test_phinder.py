@@ -120,3 +120,55 @@ def test_gzipped_cif_is_not_handed_to_the_pdb_parser(tmp_path):
     protein = PDBfile(str(tmp_path) + "/", "test.cif.gz", zip_status=1)
     assert protein.format == "cif"
     assert sorted(protein.chains) == ["B", "R"]
+
+
+# Pseudo-atoms in the triangulation -------------------------------------------
+# convexHull4D seeds the hull with a template tetrahedron of PseudoAtom vertices.
+# They have residue = None by construction. A large query set buries them, but a
+# narrow residue selection leaves so few real vertices that they survive pruning
+# -- which is why the CLI's own default, ionizableSetNoCys, crashed, along with
+# acidicSet and basicSet, while allSet and the broader sets did not.
+
+
+def test_min_sidechain_distance_tolerates_a_pseudo_atom():
+    from pHinder._vendor.compGeometry import findMinSidechainDistance
+    from pHinder._vendor.pdbFile import PseudoAtom
+
+    psa = PseudoAtom()
+    psa.x, psa.y, psa.z = 1.0, 0.0, 0.0
+    psa.reinitialize()
+    assert psa.residue is None, "a pseudo-atom stands for no residue"
+
+    other = PseudoAtom()
+    other.x, other.y, other.z = 0.0, 1.0, 0.0
+    other.reinitialize()
+
+    d = findMinSidechainDistance(psa, other)
+    assert d == pytest.approx(2 ** 0.5), "it stands for itself, so plain distance"
+
+
+def test_pruning_skips_pseudo_atom_nodes():
+    """A node with no residue is scaffolding: drop its edges and move on."""
+    from pHinder.geometry.goFo import pruneTriangulationGoFo
+
+    class Data:
+        # goFo identifies pseudo-atoms by residue_name; the crash came from
+        # residue itself being None, so the guard keys on that.
+        def __init__(self, residue, residue_name):
+            self.residue = residue
+            self.residue_name = residue_name
+
+    class Residue:
+        num, chn, name = 1, "A", "ASP"
+
+    class Node:
+        def __init__(self, residue, residue_name, s2s):
+            self.s1 = type("V", (), {"data": Data(residue, residue_name)})()
+            self.s2s = list(s2s)
+
+    triangulation = {0: Node(None, "PSA", [(0, 1)]),
+                     1: Node(Residue(), "ASP", [])}
+    triangulation, networks = pruneTriangulationGoFo(triangulation, 5.0)
+
+    assert triangulation[0].s2s == [], "the pseudo node keeps no edges"
+    assert isinstance(networks, dict)

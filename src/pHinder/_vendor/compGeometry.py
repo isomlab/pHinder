@@ -1028,10 +1028,16 @@ def findMinSidechainDistance(a, b):
     # The calculation does not include the backbone atoms of the sidechain.
     #################################################################################
     
+    # A pseudo-atom has no residue: convexHull4D seeds the triangulation with a
+    # template tetrahedron of PseudoAtom vertices, and with a small enough query
+    # set -- the narrow residue selections, acidicSet and the like -- those
+    # survive pruning and turn up here as a neighbour. It has no side chain, so
+    # it stands for itself, exactly as the HOH/ARG/LYS case below does.
+    ################################
     # Define atoms for side chain a.
     ################################
     aAtoms = None
-    if a.residue.name not in ["HOH", "ARG", "LYS"]:
+    if a.residue is not None and a.residue.name not in ["HOH", "ARG", "LYS"]:
         aAtoms = a.residue.get_sidechain_atoms()
         # If this is the case, no atoms are associated with the side chain.
         ###################################################################
@@ -1043,7 +1049,7 @@ def findMinSidechainDistance(a, b):
     # Define atoms for side chain b.
     ################################
     bAtoms = None
-    if b.residue.name not in ["HOH", "ARG", "LYS"]:
+    if b.residue is not None and b.residue.name not in ["HOH", "ARG", "LYS"]:
         bAtoms = b.residue.get_sidechain_atoms()
         # If this is the case, no atoms are associated with the side chain.
         ###################################################################
@@ -1063,10 +1069,12 @@ def findMinSidechainDistance(a, b):
             d = distance(aAtom, bAtom)
             
             # Make fuzzy sidechains due to reduced representations. This "softens" the network calculation.
+            # A pseudo-atom has no residue and gets no softening -- it does not
+            # stand for a reduced side chain, it is a triangulation seed.
             ###############################################################################################
-            if aAtom.residue.name in ["HOH", "ARG", "LYS", "CYS"]:
+            if aAtom.residue is not None and aAtom.residue.name in ["HOH", "ARG", "LYS", "CYS"]:
                 d -= 0.5
-            if bAtom.residue.name in ["HOH", "ARG", "LYS", "CYS"]:
+            if bAtom.residue is not None and bAtom.residue.name in ["HOH", "ARG", "LYS", "CYS"]:
                 d -= 0.5
             if d < minDistance:
                 minDistance = d
