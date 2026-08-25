@@ -812,6 +812,12 @@ class Residue:
         self.num = Atom_instance.residue_sequence_number
         self.name = Atom_instance.residue_name
         self.chn = Atom_instance.chain_identifier
+        # The label the structure file itself used -- "16", or "184A" when there
+        # was an insertion code. Renumbering replaces self.num with a gap-free
+        # sequence, which makes it useless for going back to the deposited
+        # structure, so the original is carried alongside. Filled in after the
+        # parse when a renumbering happened; otherwise it is just the number.
+        self.num_original = str(self.num)
         self.key = (self.num, self.name, self.chn)
         self.branched = 0
         self.missingSidechainAtoms = 0
@@ -1442,6 +1448,8 @@ class PDBfile:
     def _init_from_pdb(self, pdbFileAsString):
         self.rewritePdbFiles = []
         makeChainA = 0
+        # (renumbered number, chain) -> the label the file used
+        self.original_residue_numbers = {}
 
         # The normalisation passes below used to rewrite the user's structure
         # file in place, four times over. They now work on this buffer and the
@@ -1494,6 +1502,7 @@ class PDBfile:
         if self.rewritePdbFiles:
             i = 0
             fixedPdbFileLines = ""
+            original_numbering = self.original_residue_numbers
             if self.zip:
                 pdbfile = list(pdb_lines)
                 for line in pdbfile:
@@ -1503,6 +1512,9 @@ class PDBfile:
                             atom.chain_identifier = "A"
                         if atom.atom_name.strip() == "N":
                             i += 1
+                        original_numbering[(i, atom.chain_identifier)] = (
+                            str(atom.residue_sequence_number)
+                            + atom.residue_insertion_code.strip())
                         atom.residue_sequence_number = i
                         atom.residue_insertion_code = ""
                         atom.reinitialize()
@@ -1519,6 +1531,9 @@ class PDBfile:
                             atom.chain_identifier = "A"
                         if atom.atom_name.strip() == "N":
                             i += 1
+                        original_numbering[(i, atom.chain_identifier)] = (
+                            str(atom.residue_sequence_number)
+                            + atom.residue_insertion_code.strip())
                         atom.residue_sequence_number = i
                         atom.residue_insertion_code = ""
                         atom.reinitialize()
@@ -1671,6 +1686,16 @@ class PDBfile:
                 residue.setAltConfBackboneAtoms()
                 residue.setsub()
                 residue.set_sidechain_representations()
+
+        # Put the file's own residue labels back on the residues. Without this a
+        # renumbered structure reports "residue 1" for what the depositor and
+        # every viewer call ILE 16, and results cannot be taken back to the
+        # structure they came from.
+        for bucket in (self.residues, self.het_residues):
+            for residue in bucket.values():
+                label = self.original_residue_numbers.get((residue.num, residue.chn))
+                if label:
+                    residue.num_original = label
 
         self.res_chains = {}
         for chain in self.res_bychain.keys():

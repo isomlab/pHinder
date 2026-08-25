@@ -235,3 +235,31 @@ def test_a_file_without_insertion_codes_keeps_its_numbering(tmp_path):
     protein = PDBfile(str(tmp_path) + "/", "clean.pdb")
 
     assert sorted({r.num for r in protein.residues.values()}) == [16, 17, 184]
+
+
+def test_the_original_residue_label_is_carried(tmp_path):
+    """Renumbering replaces the file's numbering; the label survives alongside
+    it, or a result cannot be taken back to the structure it came from."""
+    from pHinder._vendor.pdbFile import PDBfile
+
+    path = tmp_path / "insertion.pdb"
+    path.write_text(_PDB_WITH_INSERTION_CODE)
+    protein = PDBfile(str(tmp_path) + "/", "insertion.pdb")
+
+    labels = {r.num: r.num_original for r in protein.residues.values()}
+    assert sorted(labels) == [1, 2, 3, 4], "renumbered 1..4"
+    assert sorted(labels.values()) == ["16", "17", "184", "184A"], \
+        f"the file's own labels, insertion code included: {labels}"
+
+
+def test_a_file_that_is_not_renumbered_reports_its_own_numbers(tmp_path):
+    from pHinder._vendor.pdbFile import PDBfile
+
+    clean = "\n".join(l for l in _PDB_WITH_INSERTION_CODE.splitlines()
+                      if "184A" not in l) + "\n"
+    path = tmp_path / "clean.pdb"
+    path.write_text(clean)
+    protein = PDBfile(str(tmp_path) + "/", "clean.pdb")
+
+    for r in protein.residues.values():
+        assert r.num_original == str(r.num), "nothing was renumbered"

@@ -162,7 +162,11 @@ class sidechainClassification:
 		num = self.v.data.residue.num
 		res = self.v.data.residue.name
 		chn = self.v.data.residue.chn
-		self.classificationString = "%4s %5i%4s %s %5.1f" % (locationKey, num, res, chn, dep)
+		# The label the structure file used, so a result can be taken back to the
+		# structure it came from. Equal to num unless renumbering happened.
+		orig = getattr(self.v.data.residue, "num_original", str(num))
+		self.classificationString = "%4s %5i %6s%4s %s %5.1f" % (
+			locationKey, num, orig, res, chn, dep)
 
 def orientS2s(triangulation):
 	# @triangulation really is an s2Dict of a triangulation
@@ -2809,16 +2813,10 @@ class pHinder:
 			sheet = classBook["Sheet"]
 			classBook.remove(sheet)
 			sheet1 = classBook.create_sheet("Sidechain Classification")
-			cell = sheet1.cell(row=1, column=1)
-			cell.value = "Classification"
-			cell = sheet1.cell(row=1, column=2)
-			cell.value = "Residue Number"
-			cell = sheet1.cell(row=1, column=3)
-			cell.value = "Residue Name"
-			cell = sheet1.cell(row=1, column=4)
-			cell.value = "Residue Chain"
-			cell = sheet1.cell(row=1, column=5)
-			cell.value = "pHinder Depth"
+			for column, heading in enumerate(
+					("Classification", "Residue Number", "Original Residue Number",
+					 "Residue Name", "Residue Chain", "pHinder Depth"), start=1):
+				sheet1.cell(row=1, column=column).value = heading
 
 			# Rank the side chain classifications by side chain depth.
 			allStrings = classificationStrings.split("\n")
@@ -2829,7 +2827,7 @@ class pHinder:
 				for y in splitX:
 					fullSplit += y.split()
 				if fullSplit:
-					key = (float(fullSplit[-1]), fullSplit[0], fullSplit[1], fullSplit[2])
+					key = (float(fullSplit[-1]),) + tuple(fullSplit)
 					rankedClassification.update({key:fullSplit})
 
 			row = 2
@@ -2840,7 +2838,7 @@ class pHinder:
 					if col in (1,):
 						cell = sheet1.cell(row=row, column=col+1)
 						cell.value = int(fullSplit[col])
-					elif col in (4,):
+					elif col in (5,):
 						cell = sheet1.cell(row=row, column=col+1)
 						cell.value = float(fullSplit[col])
 					else:
@@ -2888,16 +2886,10 @@ class pHinder:
 				sheet = classBook["Sheet"]
 				classBook.remove(sheet)
 				sheet1 = classBook.create_sheet("Sidechain Classification")
-				cell = sheet1.cell(row=1, column=1)
-				cell.value = "Classification"
-				cell = sheet1.cell(row=1, column=2)
-				cell.value = "Residue Number"
-				cell = sheet1.cell(row=1, column=3)
-				cell.value = "Residue Name"
-				cell = sheet1.cell(row=1, column=4)
-				cell.value = "Residue Chain"
-				cell = sheet1.cell(row=1, column=5)
-				cell.value = "pHinder Depth"
+				for column, heading in enumerate(
+						("Classification", "Residue Number", "Original Residue Number",
+						 "Residue Name", "Residue Chain", "pHinder Depth"), start=1):
+					sheet1.cell(row=1, column=column).value = heading
 
 				# Rank the side chain classifications by side chain depth.
 				allStrings = classificationStrings.split("\n")
@@ -2908,7 +2900,7 @@ class pHinder:
 					for y in splitX:
 						fullSplit += y.split()
 					if fullSplit:
-						key = (float(fullSplit[-1]), fullSplit[0], fullSplit[1], fullSplit[2])
+						key = (float(fullSplit[-1]),) + tuple(fullSplit)
 						rankedClassification.update({key:fullSplit})
 
 				row = 2
@@ -2919,7 +2911,7 @@ class pHinder:
 						if col in (1,):
 							cell = sheet1.cell(row=row, column=col+1)
 							cell.value = int(fullSplit[col])
-						elif col in (4,):
+						elif col in (5,):
 							cell = sheet1.cell(row=row, column=col+1)
 							cell.value = float(fullSplit[col])
 						else:
