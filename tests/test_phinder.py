@@ -172,3 +172,66 @@ def test_pruning_skips_pseudo_atom_nodes():
 
     assert triangulation[0].s2s == [], "the pseudo node keeps no edges"
     assert isinstance(networks, dict)
+
+
+# Structure files are the user's, and residues have numbers ------------------
+# Both bugs sat in the same place. A PDB with insertion codes triggered a
+# renumbering pass that (a) rewrote the file on disk, four times over, and
+# (b) keyed on atom_name == " N" -- PDB atom names are four characters, so the
+# backbone nitrogen is " N  " and the test never fired. Every residue was
+# therefore numbered 0, and residues collapsed by (0, name, chain): 281
+# residues in 2PTC became 38.
+
+_PDB_WITH_INSERTION_CODE = """\
+ATOM      1  N   ILE E  16      18.871  65.715  12.731  1.00 21.86           N
+ATOM      2  CA  ILE E  16      19.481  64.399  12.507  1.00 20.71           C
+ATOM      3  N   VAL E  17      20.109  64.328  11.320  1.00 19.64           N
+ATOM      4  CA  VAL E  17      20.759  63.086  10.939  1.00 18.86           C
+ATOM      5  N   GLY E 184      21.000  62.000  10.000  1.00 18.00           N
+ATOM      6  CA  GLY E 184      21.500  61.500   9.500  1.00 18.00           C
+ATOM      7  N   GLY E 184A     22.000  61.000   9.000  1.00 18.00           N
+ATOM      8  CA  GLY E 184A     22.500  60.500   8.500  1.00 18.00           C
+END
+"""
+
+
+def test_a_structure_file_is_never_rewritten(tmp_path):
+    import hashlib
+
+    from pHinder._vendor.pdbFile import PDBfile
+
+    path = tmp_path / "insertion.pdb"
+    path.write_text(_PDB_WITH_INSERTION_CODE)
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    PDBfile(str(tmp_path) + "/", "insertion.pdb")
+
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == before, \
+        "pHinder must not rewrite the structure it was handed"
+
+
+def test_renumbering_actually_numbers(tmp_path):
+    """Four residues in, four residues out -- not one bucket numbered zero."""
+    from pHinder._vendor.pdbFile import PDBfile
+
+    path = tmp_path / "insertion.pdb"
+    path.write_text(_PDB_WITH_INSERTION_CODE)
+    protein = PDBfile(str(tmp_path) + "/", "insertion.pdb")
+
+    numbers = sorted({r.num for r in protein.residues.values()})
+    assert len(protein.residues) == 4, "ILE, VAL and both GLYs are distinct residues"
+    assert 0 not in numbers, "residue 0 is the signature of the old broken test"
+    assert len(numbers) == 4, f"every residue needs its own number, got {numbers}"
+
+
+def test_a_file_without_insertion_codes_keeps_its_numbering(tmp_path):
+    """The renumbering pass only fires when it has to."""
+    from pHinder._vendor.pdbFile import PDBfile
+
+    clean = "\n".join(l for l in _PDB_WITH_INSERTION_CODE.splitlines()
+                      if "184A" not in l) + "\n"
+    path = tmp_path / "clean.pdb"
+    path.write_text(clean)
+    protein = PDBfile(str(tmp_path) + "/", "clean.pdb")
+
+    assert sorted({r.num for r in protein.residues.values()}) == [16, 17, 184]
