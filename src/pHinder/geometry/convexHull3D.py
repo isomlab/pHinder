@@ -1,6 +1,7 @@
 zero = 1e-12
 
 from pHinder._vendor.compGeometry import geom_tol, Vertex, Edge, Triangle, gp2D, gp3D, planeCoefficients3D, distance
+from pHinder.geometry.general_position import JostleBudget
 import pHinder._vendor.compGeometry as cg
 
 class triangulation2D:
@@ -186,11 +187,12 @@ class convexHull3D:
 
 		# Ensure v1 and v2 are not identical
 		d = distance(v1, v2)
+		budget = JostleBudget("the first two vertices of the seed simplex are coincident")
 		while not d:
 			if self.for_2d_triangulation:
-				v2.jostle(parabaloid=True)
+				budget.jostle(v2, parabaloid=True)
 			else:
-				v2.jostle()		
+				budget.jostle(v2)
 			d = distance(v1, v2)
 			if d:
 				v1.no_more_jostling = True
@@ -198,25 +200,27 @@ class convexHull3D:
 
 		# Ensure v1, v2, and v3 are in general position
 		vGp = 0
+		budget = JostleBudget("the first three vertices of the seed simplex are collinear")
 		while not vGp:
 			vGp = gp2D(v1, v2, v3)
 			if not vGp:
 				if self.for_2d_triangulation:
-					v3.jostle(parabaloid=True)
+					budget.jostle(v3, parabaloid=True)
 				else:
-					v3.jostle()
+					budget.jostle(v3)
 			if vGp:
 				v3.no_more_jostling = True
 
 		# Ensure v1, v2, v3, and v4 are in general position
 		vGp = 0
+		budget = JostleBudget("the first four vertices of the seed simplex are coplanar")
 		while not vGp:
 			vGp = gp3D(v1,v2,v3,v4)
 			if not vGp:
 				if self.for_2d_triangulation:
-					v4.jostle(parabaloid=True)
+					budget.jostle(v4, parabaloid=True)
 				else:
-					v4.jostle()
+					budget.jostle(v4)
 			if vGp:
 				v4.no_more_jostling = True
 
@@ -495,11 +499,12 @@ class convexHull3D:
 		for e in self.horizon_edges:
 			t = Triangle(e.lf.v1, e.lf.v2, e.lf.v3, VertexR=vertex, zero=self.minArea, skip_orientation=1)
 			if t.id == "not in general position":
+				budget = JostleBudget("a horizon triangle stayed degenerate against edge %s" % e.id)
 				while t.id == "not in general position":
 					if self.for_2d_triangulation:
-						vertex.jostle(parabaloid=True)
+						budget.jostle(vertex, parabaloid=True)
 					else:
-						vertex.jostle()
+						budget.jostle(vertex)
 					t = Triangle(e.lf.v1, e.lf.v2, e.lf.v3, VertexR=vertex, zero=self.minArea, skip_orientation=1)
 			t.make_ltriangle(zero=self.minArea); t.set_edge_topology()
 			updated_edges = t.get_edges()

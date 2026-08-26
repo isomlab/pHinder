@@ -297,6 +297,14 @@ class Atom:
                 self.chain_identifier = atom_detail
                 self.cif_dictionary["_atom_site.label_asym_id"] = self.chain_identifier
 
+            # auth_asym_id is what a viewer shows and what a person means by
+            # "chain R". It sits after label_asym_id in the atom_site loop, so
+            # assigning it here overwrites the label value for this row, and
+            # falls back to the label when a file carries no author ids.
+            if cif_option == "_atom_site.auth_asym_id":
+                self.chain_identifier = atom_detail
+                self.cif_dictionary["_atom_site.auth_asym_id"] = self.chain_identifier
+
             if cif_option == "_atom_site.label_entity_id":
                 self.entity_id = atom_detail
                 self.cif_dictionary["_atom_site.label_entity_id"] = self.entity_id
@@ -305,6 +313,16 @@ class Atom:
                 try:
                     self.residue_sequence_number = int(atom_detail)
                     self.cif_dictionary["_atom_site.label_seq_id"] = self.residue_sequence_number
+                except Exception:
+                    pass
+
+            # Author residue numbering, for the same reason and with the same
+            # ordering. Chain and residue number have to come from one system
+            # or a residue ends up identified by a pair that matches nothing.
+            if cif_option == "_atom_site.auth_seq_id":
+                try:
+                    self.residue_sequence_number = int(atom_detail)
+                    self.cif_dictionary["_atom_site.auth_seq_id"] = self.residue_sequence_number
                 except Exception:
                     pass
 
@@ -794,6 +812,12 @@ class Residue:
         self.num = Atom_instance.residue_sequence_number
         self.name = Atom_instance.residue_name
         self.chn = Atom_instance.chain_identifier
+        # The label the structure file itself used -- "16", or "184A" when there
+        # was an insertion code. Renumbering replaces self.num with a gap-free
+        # sequence, which makes it useless for going back to the deposited
+        # structure, so the original is carried alongside. Filled in after the
+        # parse when a renumbering happened; otherwise it is just the number.
+        self.num_original = str(self.num)
         self.key = (self.num, self.name, self.chn)
         self.branched = 0
         self.missingSidechainAtoms = 0
@@ -1385,7 +1409,12 @@ class PDBfile:
         self.format = "pdb"
         self.pdbCode = "NONE"
 
+        # Strip a compression suffix before looking at the extension, or
+        # "8hs2.cif.gz" matches neither branch, falls through to the default,
+        # and a CIF gets handed to the PDB parser.
         lower_name = pdbFileName.lower()
+        if lower_name.endswith(".gz"):
+            lower_name = lower_name[:-len(".gz")]
         if lower_name.endswith(".cif") or lower_name.endswith(".mmcif"):
             self.format = "cif"
             self.pdbCode = pdbFileName.split(".cif")[0].split(".mmcif")[0]
@@ -1419,19 +1448,33 @@ class PDBfile:
     def _init_from_pdb(self, pdbFileAsString):
         self.rewritePdbFiles = []
         makeChainA = 0
+        # (renumbered number, chain) -> the label the file used
+        self.original_residue_numbers = {}
+
+        # The normalisation passes below used to rewrite the user's structure
+        # file in place, four times over. They now work on this buffer and the
+        # file on disk is never touched: a structure a person hands us is theirs,
+        # and pHinder rewriting it -- while renumbering every residue to 0, as it
+        # did -- destroys data that may not exist anywhere else.
+        if pdbFileAsString:
+            pdb_lines = pdbFileAsString.splitlines(keepends=True)
+        elif self.zip:
+            pdb_lines = [b.decode() for b in
+                         gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb").readlines()]
+        else:
+            pdb_lines = open(self.pdbFilePath + self.pdbFileName, "r").readlines()
 
         # Scan for NULL chain
         if self.zip:
-            pdbfile = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb").readlines()
+            pdbfile = list(pdb_lines)
             for line in pdbfile:
-                line = line.decode()
                 if line[0:4] == "ATOM" and line[21:22] == " ":
                     makeChainA = 1
                     self.rewritePdbFiles.append(self.pdbFilePath + self.pdbFileName)
                     print("PDB file has NULL chain. Rename as chain A....")
                     break
         else:
-            pdbfile = open(self.pdbFilePath + self.pdbFileName, 'r').readlines()
+            pdbfile = list(pdb_lines)
             for line in pdbfile:
                 if line[0:4] == "ATOM" and line[21:22] == " ":
                     makeChainA = 1
@@ -1441,15 +1484,14 @@ class PDBfile:
 
         # Scan for insertion codes
         if self.zip:
-            pdbfile = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb").readlines()
+            pdbfile = list(pdb_lines)
             for line in pdbfile:
-                line = line.decode()
                 if line[0:4] == "ATOM" and line[26:27] != " ":
                     self.rewritePdbFiles.append(self.pdbFilePath + self.pdbFileName)
                     print("PDB file has residue insertion codes. Must renumber....")
                     break
         else:
-            pdbfile = open(self.pdbFilePath + self.pdbFileName, 'r').readlines()
+            pdbfile = list(pdb_lines)
             for line in pdbfile:
                 if line[0:4] == "ATOM" and line[26:27] != " ":
                     self.rewritePdbFiles.append(self.pdbFilePath + self.pdbFileName)
@@ -1460,51 +1502,52 @@ class PDBfile:
         if self.rewritePdbFiles:
             i = 0
             fixedPdbFileLines = ""
+            original_numbering = self.original_residue_numbers
             if self.zip:
-                pdbfile = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb").readlines()
+                pdbfile = list(pdb_lines)
                 for line in pdbfile:
-                    line = line.decode()
                     if line[0:4] == "ATOM":
                         atom = Atom(pdbfileline=line)
                         if makeChainA:
                             atom.chain_identifier = "A"
-                        if atom.atom_name == " N":
+                        if atom.atom_name.strip() == "N":
                             i += 1
+                        original_numbering[(i, atom.chain_identifier)] = (
+                            str(atom.residue_sequence_number)
+                            + atom.residue_insertion_code.strip())
                         atom.residue_sequence_number = i
                         atom.residue_insertion_code = ""
                         atom.reinitialize()
                         fixedPdbFileLines += str(atom)
                     else:
                         fixedPdbFileLines += line
-                pdbFileRewrite = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "wb")
-                pdbFileRewrite.write(fixedPdbFileLines.encode())
-                pdbFileRewrite.close()
+                pdb_lines = fixedPdbFileLines.splitlines(keepends=True)
             else:
-                pdbfile = open(self.pdbFilePath + self.pdbFileName, 'r').readlines()
+                pdbfile = list(pdb_lines)
                 for line in pdbfile:
                     if line[0:4] == "ATOM":
                         atom = Atom(pdbfileline=line)
                         if makeChainA:
                             atom.chain_identifier = "A"
-                        if atom.atom_name == " N":
+                        if atom.atom_name.strip() == "N":
                             i += 1
+                        original_numbering[(i, atom.chain_identifier)] = (
+                            str(atom.residue_sequence_number)
+                            + atom.residue_insertion_code.strip())
                         atom.residue_sequence_number = i
                         atom.residue_insertion_code = ""
                         atom.reinitialize()
                         fixedPdbFileLines += str(atom)
                     else:
                         fixedPdbFileLines += line
-                pdbFileRewrite = open(self.pdbFilePath + self.pdbFileName, "w")
-                pdbFileRewrite.write(fixedPdbFileLines)
-                pdbFileRewrite.close()
+                pdb_lines = fixedPdbFileLines.splitlines(keepends=True)
 
         self.rewritePdbFiles = []
 
         # Scan for hex serials / residue numbers
         if self.zip:
-            pdbfile = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb").readlines()
+            pdbfile = list(pdb_lines)
             for line in pdbfile:
-                line = line.decode()
                 if line[0:4] == "ATOM" or line[0:6] == "HETATM":
                     atomInstance = Atom(pdbfileline=line)
                     if atomInstance.hex_atom_serial or atomInstance.hex_residue_sequence_number:
@@ -1513,7 +1556,7 @@ class PDBfile:
                         print("By default, a single-character chain identifier, 5-digit atom serial, and 4-digit residue number is assumed.")
                         break
         else:
-            pdbfile = open(self.pdbFilePath + self.pdbFileName, 'r').readlines()
+            pdbfile = list(pdb_lines)
             for line in pdbfile:
                 if line[0:4] == "ATOM" or line[0:6] == "HETATM":
                     atomInstance = Atom(pdbfileline=line)
@@ -1527,41 +1570,35 @@ class PDBfile:
         if self.rewritePdbFiles:
             fixedPdbFileLines = ""
             if self.zip:
-                pdbfile = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb").readlines()
+                pdbfile = list(pdb_lines)
                 for line in pdbfile:
-                    line = line.decode()
                     if line[0:4] == "ATOM" or line[0:6] == "HETATM":
                         atom = Atom(pdbfileline=line)
                         fixedPdbFileLines += str(atom)
                     else:
                         fixedPdbFileLines += line
-                pdbFileRewrite = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "wb")
-                pdbFileRewrite.write(fixedPdbFileLines.encode())
-                pdbFileRewrite.close()
+                pdb_lines = fixedPdbFileLines.splitlines(keepends=True)
             else:
-                pdbfile = open(self.pdbFilePath + self.pdbFileName, 'r').readlines()
+                pdbfile = list(pdb_lines)
                 for line in pdbfile:
                     if line[0:4] == "ATOM" or line[0:6] == "HETATM":
                         atom = Atom(pdbfileline=line)
                         fixedPdbFileLines += str(atom)
                     else:
                         fixedPdbFileLines += line
-                pdbFileRewrite = open(self.pdbFilePath + self.pdbFileName, "w")
-                pdbFileRewrite.write(fixedPdbFileLines)
-                pdbFileRewrite.close()
+                pdb_lines = fixedPdbFileLines.splitlines(keepends=True)
 
         # Scan for heteroatoms mislabelled as ATOM
         self.rewritePdbFilesHeteroAtoms = []
         if self.zip:
-            pdbfile = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb").readlines()
+            pdbfile = list(pdb_lines)
             for line in pdbfile:
-                line = line.decode()
                 if line[0:4] == "ATOM" and line[17:20] not in ALL_SIDECHAINS:
                     self.rewritePdbFilesHeteroAtoms.append(self.pdbFilePath + self.pdbFileName)
                     print("PDB file has incorrectly formatted heteroatoms. Must reformat....")
                     break
         else:
-            pdbfile = open(self.pdbFilePath + self.pdbFileName, 'r').readlines()
+            pdbfile = list(pdb_lines)
             for line in pdbfile:
                 if line[0:4] == "ATOM" and line[17:20] not in ALL_SIDECHAINS:
                     self.rewritePdbFilesHeteroAtoms.append(self.pdbFilePath + self.pdbFileName)
@@ -1572,9 +1609,8 @@ class PDBfile:
         if self.rewritePdbFilesHeteroAtoms:
             fixedPdbFileLines = ""
             if self.zip:
-                pdbfile = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb").readlines()
+                pdbfile = list(pdb_lines)
                 for line in pdbfile:
-                    line = line.decode()
                     if line[0:4] == "ATOM" and line[17:20] not in ALL_SIDECHAINS:
                         atom = Atom(pdbfileline=line)
                         atom.record_name = "HETATM"
@@ -1582,11 +1618,9 @@ class PDBfile:
                         fixedPdbFileLines += str(atom)
                     else:
                         fixedPdbFileLines += line
-                pdbFileRewrite = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "wb")
-                pdbFileRewrite.write(fixedPdbFileLines.encode())
-                pdbFileRewrite.close()
+                pdb_lines = fixedPdbFileLines.splitlines(keepends=True)
             else:
-                pdbfile = open(self.pdbFilePath + self.pdbFileName, 'r').readlines()
+                pdbfile = list(pdb_lines)
                 for line in pdbfile:
                     if line[0:4] == "ATOM" and line[17:20] not in ALL_SIDECHAINS:
                         atom = Atom(pdbfileline=line)
@@ -1595,21 +1629,13 @@ class PDBfile:
                         fixedPdbFileLines += str(atom)
                     else:
                         fixedPdbFileLines += line
-                pdbFileRewrite = open(self.pdbFilePath + self.pdbFileName, "w")
-                pdbFileRewrite.write(fixedPdbFileLines)
-                pdbFileRewrite.close()
+                pdb_lines = fixedPdbFileLines.splitlines(keepends=True)
 
         # Final parse
-        self.pdbfile = []
-        if self.zip:
-            self.pdbfile += gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb").readlines()
-        else:
-            self.pdbfile += open(self.pdbFilePath + self.pdbFileName, 'r').readlines()
+        self.pdbfile = list(pdb_lines)
 
         i, resnum, previousAtom = 0, 0, Atom()
         for line in self.pdbfile:
-            if self.zip:
-                line = line.decode()
             if "EXPDTA" in line:
                 self.isNmrStructure = 1
             if "ENDMDL" in line and self.isNmrStructure:
@@ -1660,6 +1686,16 @@ class PDBfile:
                 residue.setAltConfBackboneAtoms()
                 residue.setsub()
                 residue.set_sidechain_representations()
+
+        # Put the file's own residue labels back on the residues. Without this a
+        # renumbered structure reports "residue 1" for what the depositor and
+        # every viewer call ILE 16, and results cannot be taken back to the
+        # structure they came from.
+        for bucket in (self.residues, self.het_residues):
+            for residue in bucket.values():
+                label = self.original_residue_numbers.get((residue.num, residue.chn))
+                if label:
+                    residue.num_original = label
 
         self.res_chains = {}
         for chain in self.res_bychain.keys():
@@ -1718,33 +1754,45 @@ class PDBfile:
             "_atom_site.pdbx_PDB_model_num": False
         }
 
-        # Read file and detect which CIF options are present
+        # Read the file, recording the _atom_site column headers IN THE ORDER THE
+        # FILE DECLARES THEM. The atom lines are matched to columns positionally,
+        # so the order has to come from the file: cif_options_all is a fixed
+        # 26-key superset, and any file that omits a column -- almost every
+        # PDB-deposited mmCIF omits the five *_esd fields -- would otherwise have
+        # every field after the first gap read out of the wrong column.
+        column_order = []
+
+        def note(candidate):
+            if candidate.startswith("_atom_site."):
+                if candidate in self.cif_options_all:
+                    self.cif_options_all[candidate] = True
+                if candidate not in column_order:
+                    column_order.append(candidate)
+
         if self.zip and self.pdbFilePath and self.pdbFileName:
             f = gzip.GzipFile(self.pdbFilePath + self.pdbFileName, "rb")
             for line in f:
                 line = line.decode()
                 self.pdbFileLines.append(line)
-                possible_cif_option = line.strip()
-                if possible_cif_option in self.cif_options_all:
-                    self.cif_options_all[possible_cif_option] = True
+                note(line.strip())
         elif pdbFileAsString:
             for line in pdbFileAsString.split("\n"):
-                possible_cif_option = line
-                if possible_cif_option in self.cif_options_all:
-                    self.cif_options_all[possible_cif_option] = True
+                note(line.strip())
                 self.pdbFileLines.append(line + "\n")
         elif self.pdbFilePath and self.pdbFileName:
             f = open(self.pdbFilePath + self.pdbFileName, "r")
             for line in f:
                 self.pdbFileLines.append(line)
-                possible_cif_option = line.strip()
-                if possible_cif_option in self.cif_options_all:
-                    self.cif_options_all[possible_cif_option] = True
+                note(line.strip())
+
+        # What the atom parser walks. Falls back to the fixed order only when a
+        # file declares no headers at all.
+        self.cif_columns = {k: True for k in column_order} or self.cif_options_all
 
         # Parse atoms and hetatoms
         for line in self.pdbFileLines:
             if line[0:4] == "ATOM":
-                atom = Atom(cif_line=line, cif_options=self.cif_options_all)
+                atom = Atom(cif_line=line, cif_options=self.cif_columns)
                 self.atoms[atom.atom_serial] = atom
                 if atom.residue_key in self.residues:
                     self.residues[atom.residue_key].addatom(atom)
@@ -1758,7 +1806,7 @@ class PDBfile:
                     self.chains.append(atom.chain_identifier)
 
             if line[0:6] == "HETATM":
-                atom = Atom(cif_line=line, cif_options=self.cif_options_all)
+                atom = Atom(cif_line=line, cif_options=self.cif_columns)
                 self.hetatoms[atom.atom_serial] = atom
                 if atom.residue_key in self.het_residues:
                     self.het_residues[atom.residue_key].addatom(atom)

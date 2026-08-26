@@ -158,11 +158,16 @@ class sidechainClassification:
 			locationKey = "M"
 		elif self.exposed:
 			locationKey = "E"
+		self.locationKey = locationKey
 		dep = self.depth
 		num = self.v.data.residue.num
 		res = self.v.data.residue.name
 		chn = self.v.data.residue.chn
-		self.classificationString = "%4s %5i%4s %s %5.1f" % (locationKey, num, res, chn, dep)
+		# The label the structure file used, so a result can be taken back to the
+		# structure it came from. Equal to num unless renumbering happened.
+		orig = getattr(self.v.data.residue, "num_original", str(num))
+		self.classificationString = "%4s %5i %6s%4s %s %9.4f" % (
+			locationKey, num, orig, res, chn, dep)
 
 def orientS2s(triangulation):
 	# @triangulation really is an s2Dict of a triangulation
@@ -575,7 +580,7 @@ class pHinder:
 		self.reducedNetworkRepresentation = 1
 		self.highResolutionSurface = 1
 		self.saveSurface = 1
-		self.allowSmallSurfaces = 0
+		self.allowSmallSurfaces = 1
 		self.saveLigandSurfaces = 1
 		self.saveNetworkTriangulation = 1
 		self.residueSet = "allSet"
@@ -2486,6 +2491,12 @@ class pHinder:
 
 			for chain in self.chains:
 
+				# The by-chain triangulation, fetched the same way as everywhere
+				# else in the per-chain code. Without this the no-surface branch
+				# below reaches for a bare mutatedTscTriangulation that nothing
+				# in this scope ever assigns.
+				mutatedTscTriangulation = self.triangulations_bychain[chain][1]
+
 				tscVertexDictSelection = {}
 				for key in self.tscVertexDictSelection:
 					if key[1] == chain:
@@ -2793,53 +2804,32 @@ class pHinder:
 			for classificationInstance in self.vExposed.values():
 				vAll[classificationInstance.v.data.atom_key] = classificationInstance
 
-			# Collect the classification strings for writing to file.
-			classificationStrings = ""
-			for v in vAll:
-				classificationStrings +=  vAll[v].classificationString + "\n" 
-
 			# Covert to Microsoft Excel format and write to file.
 			classBook = openpyxl.Workbook()
 			sheet = classBook["Sheet"]
 			classBook.remove(sheet)
 			sheet1 = classBook.create_sheet("Sidechain Classification")
-			cell = sheet1.cell(row=1, column=1)
-			cell.value = "Classification"
-			cell = sheet1.cell(row=1, column=2)
-			cell.value = "Residue Number"
-			cell = sheet1.cell(row=1, column=3)
-			cell.value = "Residue Name"
-			cell = sheet1.cell(row=1, column=4)
-			cell.value = "Residue Chain"
-			cell = sheet1.cell(row=1, column=5)
-			cell.value = "pHinder Depth"
+			for column, heading in enumerate(
+					("Classification", "Residue Number", "Original Residue Number",
+					 "Residue Name", "Residue Chain", "pHinder Depth"), start=1):
+				sheet1.cell(row=1, column=column).value = heading
 
-			# Rank the side chain classifications by side chain depth.
-			allStrings = classificationStrings.split("\n")
-			rankedClassification = {}
-			for x in allStrings:
-				splitX = x.split(":")
-				fullSplit = []
-				for y in splitX:
-					fullSplit += y.split()
-				if fullSplit:
-					key = (float(fullSplit[-1]), fullSplit[0], fullSplit[1], fullSplit[2])
-					rankedClassification.update({key:fullSplit})
-
+			# Rank by depth, reading the classification instances directly. The depth
+			# written here is the same full-precision value the classification was
+			# decided on -- it used to be recovered from a "%5.1f" rendering, which
+			# rounded -3.04 and -2.96 both to "-3" and left the number unable to
+			# explain why one is core and the other margin.
+			ranked = sorted(
+				vAll.values(),
+				key=lambda ci: (ci.depth, ci.v.data.residue.chn, ci.v.data.residue.num))
 			row = 2
-			rankedClassificationKeys = sorted(rankedClassification)
-			for rankedClassificationKey in rankedClassificationKeys:
-				fullSplit = rankedClassification[rankedClassificationKey]
-				for col in range(len(fullSplit)):
-					if col in (1,):
-						cell = sheet1.cell(row=row, column=col+1)
-						cell.value = int(fullSplit[col])
-					elif col in (4,):
-						cell = sheet1.cell(row=row, column=col+1)
-						cell.value = float(fullSplit[col])
-					else:
-						cell = sheet1.cell(row=row, column=col+1)
-						cell.value = fullSplit[col]
+			for ci in ranked:
+				residue = ci.v.data.residue
+				values = (ci.locationKey, residue.num,
+						  getattr(residue, "num_original", str(residue.num)),
+						  residue.name, residue.chn, ci.depth)
+				for column, value in enumerate(values, start=1):
+					sheet1.cell(row=row, column=column).value = value
 				row += 1
 
 			if self.residueSet in ["ionizableSet", "ionizableSetNoCys"]:
@@ -2872,53 +2862,32 @@ class pHinder:
 				if not vAll:
 					continue
 
-				# Collect the classification strings for writing to file.
-				classificationStrings = ""
-				for v in vAll:
-					classificationStrings +=  vAll[v].classificationString + "\n" 
-
 				# Covert to Microsoft Excel format and write to file.
 				classBook = openpyxl.Workbook()
 				sheet = classBook["Sheet"]
 				classBook.remove(sheet)
 				sheet1 = classBook.create_sheet("Sidechain Classification")
-				cell = sheet1.cell(row=1, column=1)
-				cell.value = "Classification"
-				cell = sheet1.cell(row=1, column=2)
-				cell.value = "Residue Number"
-				cell = sheet1.cell(row=1, column=3)
-				cell.value = "Residue Name"
-				cell = sheet1.cell(row=1, column=4)
-				cell.value = "Residue Chain"
-				cell = sheet1.cell(row=1, column=5)
-				cell.value = "pHinder Depth"
+				for column, heading in enumerate(
+						("Classification", "Residue Number", "Original Residue Number",
+						 "Residue Name", "Residue Chain", "pHinder Depth"), start=1):
+					sheet1.cell(row=1, column=column).value = heading
 
-				# Rank the side chain classifications by side chain depth.
-				allStrings = classificationStrings.split("\n")
-				rankedClassification = {}
-				for x in allStrings:
-					splitX = x.split(":")
-					fullSplit = []
-					for y in splitX:
-						fullSplit += y.split()
-					if fullSplit:
-						key = (float(fullSplit[-1]), fullSplit[0], fullSplit[1], fullSplit[2])
-						rankedClassification.update({key:fullSplit})
-
+				# Rank by depth, reading the classification instances directly. The depth
+				# written here is the same full-precision value the classification was
+				# decided on -- it used to be recovered from a "%5.1f" rendering, which
+				# rounded -3.04 and -2.96 both to "-3" and left the number unable to
+				# explain why one is core and the other margin.
+				ranked = sorted(
+					vAll.values(),
+					key=lambda ci: (ci.depth, ci.v.data.residue.chn, ci.v.data.residue.num))
 				row = 2
-				rankedClassificationKeys = sorted(rankedClassification)
-				for rankedClassificationKey in rankedClassificationKeys:
-					fullSplit = rankedClassification[rankedClassificationKey]
-					for col in range(len(fullSplit)):
-						if col in (1,):
-							cell = sheet1.cell(row=row, column=col+1)
-							cell.value = int(fullSplit[col])
-						elif col in (4,):
-							cell = sheet1.cell(row=row, column=col+1)
-							cell.value = float(fullSplit[col])
-						else:
-							cell = sheet1.cell(row=row, column=col+1)
-							cell.value = fullSplit[col]
+				for ci in ranked:
+					residue = ci.v.data.residue
+					values = (ci.locationKey, residue.num,
+							  getattr(residue, "num_original", str(residue.num)),
+							  residue.name, residue.chn, ci.depth)
+					for column, value in enumerate(values, start=1):
+						sheet1.cell(row=row, column=column).value = value
 					row += 1
 
 				outPath = self.outPaths_bychain[chain]

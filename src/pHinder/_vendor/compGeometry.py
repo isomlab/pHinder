@@ -9,7 +9,70 @@ from pHinder._vendor.determinants import det3x3, det4x4
 from decimal import *
 import numpy as np
 from collections.abc import Sequence, Iterable
+import hashlib
+import os
+import random
+import struct
 from typing import Any, Tuple, Union, Optional
+
+# ---------------------------------------------------------------------------
+# Where jostling gets its randomness
+#
+# Jostling exists to put points in general position: without it the orientation
+# predicates are ambiguous at exact zero and the rotation around facets can
+# cycle instead of terminating. That is not in question here and none of it
+# changes below -- same epsilon, same uniform draw in [-eps, +eps], same call
+# sites, same number of draws in the same order.
+#
+# The only thing that changes is where the numbers come from. Drawing them from
+# the process-global unseeded RNG made every run of the same structure produce a
+# slightly different answer. Drawing them from an RNG seeded on the vertex's own
+# identity and coordinates and its jostle count makes the perturbation a
+# deterministic function of the input: the same structure gets the same nudge,
+# each retry still gets a different one, two vertices at the same point still
+# come apart, and degeneracy is escaped exactly as before.
+#
+# TO REVERT, either of these restores the previous behaviour exactly:
+#     * set the environment variable PHINDER_JOSTLE=random
+#     * or set JOSTLE_DETERMINISTIC = False below
+# Nothing else in the file depends on the choice.
+# ---------------------------------------------------------------------------
+
+JOSTLE_DETERMINISTIC = os.environ.get("PHINDER_JOSTLE", "deterministic").lower() != "random"
+
+
+# The Vertex/Vertex4D default for unique_id.  A vertex carrying this has no
+# identity of its own, and is seeded from position and count alone -- exactly as
+# before identity was folded in -- so anything that does not name its vertices
+# keeps the behaviour it had.
+_NO_IDENTITY = "no id"
+
+
+def _jostle_rng(x, y, z, count, identity=_NO_IDENTITY):
+    """An RNG determined by which vertex this is, where it is, and how often it
+    has been moved.
+
+    Position and count alone are not enough. They are *identical* for two
+    vertices that occupy the same point, so both would draw the same nudge, move
+    together, and stay coincident however many times they were jostled -- the one
+    degeneracy a perturbation exists to break, and the one case the unseeded
+    global RNG handled for free by separating them on the first call.
+
+    Mixing the vertex's own id in restores that separation without giving up
+    determinism: the id is a property of the input (in the hulls it is the
+    vertex's position in a sort of the input coordinates), not of the process, so
+    the same structure still yields the same perturbations run after run.
+
+    blake2b rather than hash() so the seed does not depend on the interpreter's
+    hash seed, the platform, or the Python version.
+    """
+    payload = struct.pack("<dddq", x, y, z, count)
+    if identity != _NO_IDENTITY:
+        payload += repr(identity).encode("utf-8")
+    seed = int.from_bytes(hashlib.blake2b(payload, digest_size=8).digest(), "little")
+    return random.Random(seed)
+
+
 
 # Determine the appropriate value for zero from a point set
 def geom_tol(*points: Any, factor: float = 10.0) -> float:
@@ -86,8 +149,12 @@ class Vertex:
         and—for a paraboloid lift—recompute z if desired.
         """
         if not self.no_more_jostling:
-            import random
-            r = random.random  # local ref is slightly faster than full lookup
+            if JOSTLE_DETERMINISTIC:
+                self._jostle_count = getattr(self, "_jostle_count", 0) + 1
+                r = _jostle_rng(self.x, self.y, self.z, self._jostle_count,
+                                self.id).random
+            else:
+                r = random.random  # local ref is slightly faster than full lookup
             self.x += (r()*2 - 1) * eps
             self.y += (r()*2 - 1) * eps
 
@@ -224,6 +291,15 @@ class Vertex4D:
         
         self.nJostles += 1
 
+        # Same switch as Vertex.jostle above: deterministic by default, drawn
+        # from this vertex's position and its jostle count, so the sequence of
+        # perturbations is a function of the input rather than of the process.
+        # Set PHINDER_JOSTLE=random (or JOSTLE_DETERMINISTIC = False) to go back
+        # to the global unseeded choice().
+        _choice = (_jostle_rng(self.x, self.y, self.z, self.nJostles,
+                               self.id).choice
+                   if JOSTLE_DETERMINISTIC else choice)
+
         # Use the random module to generate random signs and dividends.
         ###############################################################
         signs = [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1]
@@ -236,8 +312,8 @@ class Vertex4D:
 
         # Jostle X.
         ###########
-        factor = choice(seq)
-        sign = choice(signs)
+        factor = _choice(seq)
+        sign = _choice(signs)
         if sign:
             self.x += 1./factor
         else:
@@ -245,8 +321,8 @@ class Vertex4D:
 
         # Jostle Y.
         ###########
-        factor = choice(seq)
-        sign = choice(signs)
+        factor = _choice(seq)
+        sign = _choice(signs)
         if sign:
             self.y += 1./factor
         else:
@@ -254,8 +330,8 @@ class Vertex4D:
 
         # Jostle Z.
         ###########
-        factor = choice(seq)
-        sign = choice(signs)
+        factor = _choice(seq)
+        sign = _choice(signs)
         if sign:
             self.z += 1./factor
         else:
@@ -1028,10 +1104,16 @@ def findMinSidechainDistance(a, b):
     # The calculation does not include the backbone atoms of the sidechain.
     #################################################################################
     
+    # A pseudo-atom has no residue: convexHull4D seeds the triangulation with a
+    # template tetrahedron of PseudoAtom vertices, and with a small enough query
+    # set -- the narrow residue selections, acidicSet and the like -- those
+    # survive pruning and turn up here as a neighbour. It has no side chain, so
+    # it stands for itself, exactly as the HOH/ARG/LYS case below does.
+    ################################
     # Define atoms for side chain a.
     ################################
     aAtoms = None
-    if a.residue.name not in ["HOH", "ARG", "LYS"]:
+    if a.residue is not None and a.residue.name not in ["HOH", "ARG", "LYS"]:
         aAtoms = a.residue.get_sidechain_atoms()
         # If this is the case, no atoms are associated with the side chain.
         ###################################################################
@@ -1043,7 +1125,7 @@ def findMinSidechainDistance(a, b):
     # Define atoms for side chain b.
     ################################
     bAtoms = None
-    if b.residue.name not in ["HOH", "ARG", "LYS"]:
+    if b.residue is not None and b.residue.name not in ["HOH", "ARG", "LYS"]:
         bAtoms = b.residue.get_sidechain_atoms()
         # If this is the case, no atoms are associated with the side chain.
         ###################################################################
@@ -1063,10 +1145,12 @@ def findMinSidechainDistance(a, b):
             d = distance(aAtom, bAtom)
             
             # Make fuzzy sidechains due to reduced representations. This "softens" the network calculation.
+            # A pseudo-atom has no residue and gets no softening -- it does not
+            # stand for a reduced side chain, it is a triangulation seed.
             ###############################################################################################
-            if aAtom.residue.name in ["HOH", "ARG", "LYS", "CYS"]:
+            if aAtom.residue is not None and aAtom.residue.name in ["HOH", "ARG", "LYS", "CYS"]:
                 d -= 0.5
-            if bAtom.residue.name in ["HOH", "ARG", "LYS", "CYS"]:
+            if bAtom.residue is not None and bAtom.residue.name in ["HOH", "ARG", "LYS", "CYS"]:
                 d -= 0.5
             if d < minDistance:
                 minDistance = d
@@ -1129,32 +1213,30 @@ def centroid4D(vertex4DList, psa):
     return result
 
 def gp2D(v1, v2, v3, zero=zero):
+    """Are the three vertices non-collinear?  0 if collinear, 1 if not.
 
-    x1, y1 = v1.x, v1.y
-    x2, y2 = v2.x, v2.y
-    x3, y3 = v3.x, v3.y
+    This is a 3D test, and has to be.  It was written as a 2x2 determinant on x
+    and y alone:
 
-    bx, by = x2 - x1, y2 - y1
-    cx, cy = x3 - x1, y3 - y1
+        bx, by = x2 - x1, y2 - y1
+        det = 2.0 * (bx * cy - by * cx)
 
-    det = 2.0 * (bx * cy - by * cx)
-    # if abs(det) == zero:
-    #     return 0
-    # else:
-    #     return 1
-    if abs(det) <= zero:
+    Both terms of that determinant carry a factor of bx or by, so when v1 and v2
+    share an x and a y -- a column of points on a vertical line -- det is
+    identically zero for every possible v3.  The callers all respond to a zero
+    by jostling v3 and testing again, and no movement of v3 can change bx or by,
+    so the loop never terminates.  Three points that are plainly non-collinear
+    in space, such as (0,0,2), (0,0,2.2) and (35,13,23), were reported collinear.
+
+    Twice the triangle area from the true cross product is the test the original
+    code used, and it is zero only when the three points really are collinear.
+    """
+    area = 0.5 * abs(float(cross_product(v1, v2, v3)))
+    # Decimal, as in gp3D and gp4D, for consistent behaviour near zero.
+    if Decimal(area) <= zero:
         return 0
     else:
         return 1
-
-    # # Yes, collinear and a problem.
-    # ###############################
-    # if Decimal((1./2.)*abs(cross_product(v1, v2, v3))) < zero: 
-    #     return 0
-    # # No, not collinear and OK.
-    # ###############################
-    # else:
-    #     return 1
 
 def planeCoefficients3D(v1, v2, v3):
     p1 = np.array([v1.x, v1.y, v1.z], dtype=float)
@@ -1392,7 +1474,12 @@ def circumSphere(
             else:
                 # fallback: add tiny random perturbation if no jostle method
                 if hasattr(v, "x") and hasattr(v, "y") and hasattr(v, "z"):
-                    perturb = (np.random.uniform(-1, 1, size=3) * jitter_scale)
+                    if JOSTLE_DETERMINISTIC:
+                        rng = _jostle_rng(v.x, v.y, v.z, attempt + 1)
+                        perturb = [(rng.random() * 2 - 1) * jitter_scale
+                                   for _ in range(3)]
+                    else:
+                        perturb = (np.random.uniform(-1, 1, size=3) * jitter_scale)
                     v.x += perturb[0]
                     v.y += perturb[1]
                     v.z += perturb[2]

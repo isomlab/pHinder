@@ -1923,11 +1923,13 @@ def goFoSurface(firstStartEdge, quadSurface, allowSmallSurfaces=0):
 	for surfaceLength in surfaceLengths:
 		#print("Surface", i, ":", surfaceLength[0]/maxLength[0], surfaceLength[0])
 		smallSurfacePass = 0
-		# This cutoff depends on whether a high resolution surface was selected....
-		minLength = 1000.0
-		if not allowSmallSurfaces:
-			minLength = minLength
-		else:
+		# Facet-count floor below which a surface piece is discarded as a
+		# fragment. 1000 was far too high: trypsin, at 223 residues, produces a
+		# 384-facet surface and lost it entirely, which silently classified every
+		# side chain as exposed. 50 is the value pHinder already uses internally
+		# for hetero and void surfaces, and it still culls genuine fragments.
+		minLength = 50.0
+		if allowSmallSurfaces:
 			minLength = allowSmallSurfaces
 		if surfaceLength[0] > minLength: #surfaceLength[0]/maxLength[0] > 0.2: Changed 2019.04.16 to make removal of small isolated surface more consistent/deterministic
 			# smallSurface, a, n = surfaceLengths[surfaceLength], 0., 0.

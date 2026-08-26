@@ -1,4 +1,5 @@
 import argparse
+import os
 import re
 import logging
 import multiprocessing as mp
@@ -85,7 +86,7 @@ def parse_arguments():
     parser.add_argument("--minarea", type=int, default=10, help="Set minArea (default: 10)")
     parser.add_argument("--high-resolution-surface", type=int, default=1, help="Enable HIGH_RESOLUTION_SURFACE (default: 1)")
     parser.add_argument("--save-surface", type=int, default=1, help="Enable SAVE_SURFACE (default: 1)")
-    parser.add_argument("--allow-small-surfaces", type=int, default=0, help="Enable ALLOW_SMALL_SURFACES (default: 0)")
+    parser.add_argument("--allow-small-surfaces", type=int, default=1, help="Facet-count floor for keeping a surface piece; 0 falls back to 50 (default: 1, keep every piece)")
     parser.add_argument("--save-ligand-surfaces", type=int, default=0, help="Enable SAVE_LIGAND_SURFACES (default: 0)")
     parser.add_argument("--write-surface-creation-animation", type=int, default=0, help="Enable WRITE_SURFACE_CREATION_ANIMATION (default: 0)")
 
@@ -149,8 +150,12 @@ def main():
     logging.basicConfig(filename="phinder_run.log", level=logging.INFO)
 
     n_processes = max(1, mp.cpu_count() - 1)
-    pdb_file_path = sep.join(args.pdb_file.split(sep)[:-1]) + sep
-    pdb_file_name = args.pdb_file.split(sep)[-1]
+    # A bare filename has no separator to split on, so the old form produced an
+    # empty directory and then prefixed a separator -- turning "2ptc.pdb" into
+    # "/2ptc.pdb". Resolve against the working directory instead.
+    pdb_file_abs = os.path.abspath(args.pdb_file)
+    pdb_file_path = os.path.dirname(pdb_file_abs) + sep
+    pdb_file_name = os.path.basename(pdb_file_abs)
     zip_status = 1 if ".gz" in pdb_file_name else 0
     if pdb_file_name.endswith('.cif') or pdb_file_name.endswith('.cif.gz'):
         pdb_format = "mmCIF"

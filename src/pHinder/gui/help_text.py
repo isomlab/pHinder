@@ -118,11 +118,13 @@ PARAMETERS = {
         "only the pieces above a size threshold — counted in surface facets — and "
         "discards the rest, reporting each one it drops as “skipped because too "
         "small”.\n\n"
-        "Unticked, that threshold is 1000 facets. Ticked, it drops to 1, so every "
-        "piece is kept.\n\n"
-        "Worth ticking when the structure is small enough that the whole surface "
-        "falls under the threshold, or when a small circumsphere radius limit has "
-        "fragmented the surface and you want the fragments rather than silence."),
+        "Ticked — the default — the threshold is 1, so every piece is kept. Unticked, "
+        "it rises to 50 facets, which discards genuine fragments while keeping the "
+        "surface of even a small protein.\n\n"
+        "Leave it ticked unless stray fragments are cluttering the result. Note what "
+        "unticking costs: a discarded surface is not a warning, it is a surface "
+        "pHinder then does not have, and side chains it cannot place get classified "
+        "as exposed."),
     "SAVE_LIGAND_SURFACES": (
         "Save ligand surfaces",
         "Surface the ligands as well as the protein, and write the result. Despite "
