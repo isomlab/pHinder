@@ -5,6 +5,6 @@ authors:
   - family-names: Isom
     given-names: Daniel G.
     affiliation: "Isom Lab, University of Miami"
-version: 7.0.1
+version: 7.0.2
 license: MIT
 repository-code: "https://github.com/isomlab/pHinder"
