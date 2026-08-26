@@ -21,6 +21,7 @@ zero = 1e-12
 ####################################################
 from pHinder._vendor.compGeometry import distance, Triangle, circumCircle, circumSphere, centroid3D, centroid4D, Vertex4D
 from pHinder._vendor.compGeometry import geom_tol, planeCoefficients3D, planeCoefficients4D, gp2D, gp3D, gp4D
+from pHinder.geometry.general_position import JostleBudget
 from pHinder._vendor.determinants import det3x3, det4x4
 from pHinder._vendor.pdbFile import PseudoAtom
 # from convexHull3D_3_0 import convexHull3D # not used
@@ -337,37 +338,41 @@ def buildSimplex5(sortedVertices):
 	###############################
 	v1, v2 = sortedVertices[0], sortedVertices[1]
 	if distance(v1, v2) <= zero:
+		budget = JostleBudget("the first two vertices of the seed simplex are coincident")
 		while distance(v1, v2) <= zero:
-			v2.jostle()
+			budget.jostle(v2)
 
 	# Test for general position d2.
 	###############################
 	vGp = 0
 	v3 = sortedVertices[2]
+	budget = JostleBudget("the first three vertices of the seed simplex are collinear")
 	while not vGp:
 		vGp = gp2D(v1, v2, v3)
 		if not vGp:
-			v3.jostle()
+			budget.jostle(v3)
 			continue
 
 	# Test for general position d3.
 	###############################
 	vGp = 0
 	v4 = sortedVertices[3]
+	budget = JostleBudget("the first four vertices of the seed simplex are coplanar")
 	while not vGp:
 		vGp = gp3D(v1, v2, v3, v4)
 		if not vGp:
-			v4.jostle()
+			budget.jostle(v4)
 			continue
 
 	# Test for general position d4.
 	###############################
 	vGp = 0
 	v5 = sortedVertices[4]
+	budget = JostleBudget("the first five vertices of the seed simplex are cospherical")
 	while not vGp:
 		vGp = gp4D(v1, v2, v3, v4, v5)
 		if not vGp:
-			v5.jostle()
+			budget.jostle(v5)
 			continue
 
 	# Delete used vertices.
@@ -935,10 +940,11 @@ class convexHull4D:
 					continue
 
 				newEdgeDict, tiers = -1, 1
+				budget = JostleBudget("the horizon ridge could not be closed for vertex %d" % i)
 				while newEdgeDict == -1:
 					horizonEdges = getHorizonRidge(vT, startHorizonEdge, self.hull4D, self.hyperPlanes, tiers=tiers)
 					if horizonEdges == -1:
-						vT.jostle()
+						budget.jostle(vT)
 						# print(vT.x, vT.y, vT.z, tiers)
 						continue
 					newEdgeDict = self.buildHorizonCone(vT, horizonEdges)

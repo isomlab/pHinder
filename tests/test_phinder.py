@@ -347,3 +347,85 @@ def test_the_perturbation_is_still_bounded_by_eps():
         v = cg.Vertex((0.0, 0.0, 0.0))
         v.jostle(eps=eps)
         assert abs(v.x) <= eps and abs(v.y) <= eps and abs(v.z) <= eps
+
+
+# ---------------------------------------------------------------------------
+# General position: the xy-only gp2D, and the unbounded jostle loops it hung.
+# ---------------------------------------------------------------------------
+
+def _v3(x, y, z):
+    from pHinder._vendor.compGeometry import Vertex
+    return Vertex((x, y, z))
+
+
+def test_gp2D_is_a_3d_test_not_an_xy_projection():
+    # gp2D compared only x and y. Both terms of that determinant carry a factor
+    # of (x2-x1) or (y2-y1), so two vertices sharing those coordinates made it
+    # report collinearity for EVERY third vertex -- and the callers respond to a
+    # zero by jostling the third vertex, which cannot change either factor.
+    from pHinder._vendor.compGeometry import gp2D
+    assert gp2D(_v3(0.0, 0.0, 2.0), _v3(0.0, 0.0, 2.2), _v3(34.9, 13.2, 22.6)) == 1
+    # Collinear in the xy projection, plainly not collinear in space.
+    assert gp2D(_v3(0.0, 0.0, 0.0), _v3(1.0, 0.0, 1.0), _v3(2.0, 0.0, 0.0)) == 1
+
+
+def test_gp2D_still_catches_real_collinearity():
+    from pHinder._vendor.compGeometry import gp2D
+    assert gp2D(_v3(0.0, 0.0, 0.0), _v3(0.0, 0.0, 1.0), _v3(0.0, 0.0, 2.0)) == 0
+    assert gp2D(_v3(0.0, 0.0, 0.0), _v3(1.0, 2.0, 3.0), _v3(2.0, 4.0, 6.0)) == 0
+    assert gp2D(_v3(0.0, 0.0, 0.0), _v3(1.0, 0.0, 0.0), _v3(0.0, 1.0, 0.0)) == 1
+
+
+def test_jostling_the_third_vertex_can_now_reach_general_position():
+    # The property every caller depends on: when the test fails, moving the
+    # vertex the loop moves has to be able to fix it.
+    from pHinder._vendor.compGeometry import gp2D
+    v1, v2, v3 = _v3(0.0, 0.0, 2.0), _v3(0.0, 0.0, 2.2), _v3(0.0, 0.0, 2.4)
+    attempts = 0
+    while not gp2D(v1, v2, v3):
+        v3.jostle()
+        attempts += 1
+        assert attempts < 100, "jostling never reached general position"
+
+
+def test_jostle_budget_raises_instead_of_spinning_forever():
+    from pHinder.geometry.general_position import JostleBudget, GeneralPositionError
+    budget = JostleBudget("a seed simplex", max_jostles=5)
+    v = _v3(0.0, 0.0, 0.0)
+    for _ in range(5):
+        budget.jostle(v)
+    with pytest.raises(GeneralPositionError) as excinfo:
+        budget.jostle(v)
+    # The message has to name the loop and locate the vertex, or a bug report
+    # from a lab member says only "it stopped".
+    assert "a seed simplex" in str(excinfo.value)
+    assert "5 jostles" in str(excinfo.value)
+
+
+def test_a_degenerate_lattice_triangulates_instead_of_hanging():
+    # 33 points on a 0.5 A cubic lattice, offset along z so that the two
+    # lowest-u vertices -- the two convexHull4D sorts to the front -- share an x
+    # and a y. That is the configuration the xy-only gp2D could never resolve:
+    # before the fix this call did not return, jostling one vertex millions of
+    # times while it wandered hundreds of angstroms away.
+    import itertools
+    from pHinder._vendor.compGeometry import Vertex4D
+    from pHinder._vendor.pdbFile import PseudoAtom
+    from pHinder.geometry.convexHull4D import convexHull4D
+
+    n, h = 2, 0.5
+    pts = [(i * h, j * h, k * h + 3.0)
+           for i, j, k in itertools.product(range(-n, n + 1), repeat=3)
+           if i * i + j * j + k * k <= n * n]
+    pts.sort(key=lambda p: (p[0] ** 2 + p[1] ** 2 + p[2] ** 2, p[0], p[1], p[2]))
+    assert (pts[0][0], pts[0][1]) == (pts[1][0], pts[1][1]), "trigger not reproduced"
+
+    vertices = []
+    for idx, (x, y, z) in enumerate(pts):
+        psa = PseudoAtom()
+        psa.x, psa.y, psa.z = x, y, z
+        vertices.append(Vertex4D((x, y, z, x * x + y * y + z * z),
+                                 data=psa, unique_id=idx))
+
+    hull = convexHull4D(vertices)
+    assert hull.hull4D, "hull built but empty"

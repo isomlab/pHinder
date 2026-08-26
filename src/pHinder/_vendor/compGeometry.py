@@ -1189,32 +1189,30 @@ def centroid4D(vertex4DList, psa):
     return result
 
 def gp2D(v1, v2, v3, zero=zero):
+    """Are the three vertices non-collinear?  0 if collinear, 1 if not.
 
-    x1, y1 = v1.x, v1.y
-    x2, y2 = v2.x, v2.y
-    x3, y3 = v3.x, v3.y
+    This is a 3D test, and has to be.  It was written as a 2x2 determinant on x
+    and y alone:
 
-    bx, by = x2 - x1, y2 - y1
-    cx, cy = x3 - x1, y3 - y1
+        bx, by = x2 - x1, y2 - y1
+        det = 2.0 * (bx * cy - by * cx)
 
-    det = 2.0 * (bx * cy - by * cx)
-    # if abs(det) == zero:
-    #     return 0
-    # else:
-    #     return 1
-    if abs(det) <= zero:
+    Both terms of that determinant carry a factor of bx or by, so when v1 and v2
+    share an x and a y -- a column of points on a vertical line -- det is
+    identically zero for every possible v3.  The callers all respond to a zero
+    by jostling v3 and testing again, and no movement of v3 can change bx or by,
+    so the loop never terminates.  Three points that are plainly non-collinear
+    in space, such as (0,0,2), (0,0,2.2) and (35,13,23), were reported collinear.
+
+    Twice the triangle area from the true cross product is the test the original
+    code used, and it is zero only when the three points really are collinear.
+    """
+    area = 0.5 * abs(float(cross_product(v1, v2, v3)))
+    # Decimal, as in gp3D and gp4D, for consistent behaviour near zero.
+    if Decimal(area) <= zero:
         return 0
     else:
         return 1
-
-    # # Yes, collinear and a problem.
-    # ###############################
-    # if Decimal((1./2.)*abs(cross_product(v1, v2, v3))) < zero: 
-    #     return 0
-    # # No, not collinear and OK.
-    # ###############################
-    # else:
-    #     return 1
 
 def planeCoefficients3D(v1, v2, v3):
     p1 = np.array([v1.x, v1.y, v1.z], dtype=float)
