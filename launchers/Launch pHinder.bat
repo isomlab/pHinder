@@ -39,7 +39,10 @@ set NEEDS_ENV=
 where git >nul 2>nul || set DOPULL=
 if defined DOPULL git -C "%REPO%" rev-parse --is-inside-work-tree >nul 2>nul || set DOPULL=
 if defined DOPULL git -C "%REPO%" remote get-url origin >nul 2>nul || set DOPULL=
-if defined DOPULL for /f %%S in ('git -C "%REPO%" status --porcelain 2^>nul ^| find /c /v ""') do if not "%%S"=="0" set DOPULL=
+set DIRTY=
+if defined DOPULL for /f %%S in ('git -C "%REPO%" status --porcelain 2^>nul ^| find /c /v ""') do if not "%%S"=="0" set DIRTY=1
+if defined DIRTY echo This copy has local changes - skipping update.
+if defined DIRTY set DOPULL=
 REM A clone made with "--branch <tag>" sits on a detached HEAD. It can never
 REM fast-forward, so it would stay on that release for ever, and silently.
 REM Move it back onto the default branch when nothing can be lost.
