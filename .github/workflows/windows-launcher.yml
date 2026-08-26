@@ -12,7 +12,7 @@ on:
   pull_request:
     paths: ["launchers/**", ".github/workflows/windows-launcher.yml"]
   push:
-    paths: ["launchers/**"]
+    paths: ["launchers/**", ".github/workflows/windows-launcher.yml"]
 
 jobs:
   unpin:
