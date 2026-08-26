@@ -27,9 +27,10 @@ from typing import Any, Tuple, Union, Optional
 # The only thing that changes is where the numbers come from. Drawing them from
 # the process-global unseeded RNG made every run of the same structure produce a
 # slightly different answer. Drawing them from an RNG seeded on the vertex's own
-# coordinates and its jostle count makes the perturbation a deterministic
-# function of the input: the same structure gets the same nudge, each retry
-# still gets a different one, and degeneracy is escaped exactly as before.
+# identity and coordinates and its jostle count makes the perturbation a
+# deterministic function of the input: the same structure gets the same nudge,
+# each retry still gets a different one, two vertices at the same point still
+# come apart, and degeneracy is escaped exactly as before.
 #
 # TO REVERT, either of these restores the previous behaviour exactly:
 #     * set the environment variable PHINDER_JOSTLE=random
@@ -40,13 +41,34 @@ from typing import Any, Tuple, Union, Optional
 JOSTLE_DETERMINISTIC = os.environ.get("PHINDER_JOSTLE", "deterministic").lower() != "random"
 
 
-def _jostle_rng(x, y, z, count):
-    """An RNG determined by a vertex's position and how often it has been moved.
+# The Vertex/Vertex4D default for unique_id.  A vertex carrying this has no
+# identity of its own, and is seeded from position and count alone -- exactly as
+# before identity was folded in -- so anything that does not name its vertices
+# keeps the behaviour it had.
+_NO_IDENTITY = "no id"
+
+
+def _jostle_rng(x, y, z, count, identity=_NO_IDENTITY):
+    """An RNG determined by which vertex this is, where it is, and how often it
+    has been moved.
+
+    Position and count alone are not enough. They are *identical* for two
+    vertices that occupy the same point, so both would draw the same nudge, move
+    together, and stay coincident however many times they were jostled -- the one
+    degeneracy a perturbation exists to break, and the one case the unseeded
+    global RNG handled for free by separating them on the first call.
+
+    Mixing the vertex's own id in restores that separation without giving up
+    determinism: the id is a property of the input (in the hulls it is the
+    vertex's position in a sort of the input coordinates), not of the process, so
+    the same structure still yields the same perturbations run after run.
 
     blake2b rather than hash() so the seed does not depend on the interpreter's
     hash seed, the platform, or the Python version.
     """
     payload = struct.pack("<dddq", x, y, z, count)
+    if identity != _NO_IDENTITY:
+        payload += repr(identity).encode("utf-8")
     seed = int.from_bytes(hashlib.blake2b(payload, digest_size=8).digest(), "little")
     return random.Random(seed)
 
@@ -129,7 +151,8 @@ class Vertex:
         if not self.no_more_jostling:
             if JOSTLE_DETERMINISTIC:
                 self._jostle_count = getattr(self, "_jostle_count", 0) + 1
-                r = _jostle_rng(self.x, self.y, self.z, self._jostle_count).random
+                r = _jostle_rng(self.x, self.y, self.z, self._jostle_count,
+                                self.id).random
             else:
                 r = random.random  # local ref is slightly faster than full lookup
             self.x += (r()*2 - 1) * eps
@@ -273,7 +296,8 @@ class Vertex4D:
         # perturbations is a function of the input rather than of the process.
         # Set PHINDER_JOSTLE=random (or JOSTLE_DETERMINISTIC = False) to go back
         # to the global unseeded choice().
-        _choice = (_jostle_rng(self.x, self.y, self.z, self.nJostles).choice
+        _choice = (_jostle_rng(self.x, self.y, self.z, self.nJostles,
+                               self.id).choice
                    if JOSTLE_DETERMINISTIC else choice)
 
         # Use the random module to generate random signs and dividends.

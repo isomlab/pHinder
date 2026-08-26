@@ -1,9 +1,9 @@
 {
   "upstream_repo": "https://github.com/isomlab/isomlab",
-  "upstream_commit": "2eb25a3f05864f9c26b5643aab08a49ad39005d0",
+  "upstream_commit": "002e1214ed083b077bebc7904fe57b1d5fad52b4",
   "note": "Shared trio vendored from isomlab. Fix bugs upstream, then run tools/sync_vendor.py.",
   "files": {
-    "compGeometry.py": "173084075d2f252befb819b46822267d5126d1fb63e641b1647383dbbe2ffb94",
+    "compGeometry.py": "85f2fcbbd0c6878450bcd5fdf87257e89038888c0f097b029f16695d5589767a",
     "determinants.py": "e863cf3e6d21da73f65dbd0e1ce4496d715a8b8daabd2a64e6c0d0b6bfeb9089",
     "pdbFile.py": "649658e7924879701eec67316cc7a6eee7e5d3c153dd86d31fbb23adc4bc47f5"
   }

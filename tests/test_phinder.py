@@ -429,3 +429,48 @@ def test_a_degenerate_lattice_triangulates_instead_of_hanging():
 
     hull = convexHull4D(vertices)
     assert hull.hull4D, "hull built but empty"
+
+
+class _JostleAtom:
+    """Stand-in for the atom a vertex carries; Vertex4D.reinitialize writes to it."""
+    x = y = z = 0.0
+    v = None
+
+
+def test_coincident_vertices_come_apart_when_jostled():
+    # Seeding on position and jostle-count alone gave two vertices at the same
+    # point the same nudge, so they moved together and stayed coincident however
+    # many times they were jostled -- the one degeneracy the perturbation exists
+    # to break, and the one case the old global RNG handled for free. Their ids
+    # differ, so they have to separate.
+    from pHinder._vendor.compGeometry import Vertex, Vertex4D
+
+    a = Vertex((0.4, -0.2, 0.6), unique_id=7)
+    b = Vertex((0.4, -0.2, 0.6), unique_id=8)
+    for _ in range(5):
+        a.jostle()
+        b.jostle()
+    assert (a.x, a.y, a.z) != (b.x, b.y, b.z)
+
+    u = 0.4 ** 2 + 0.2 ** 2 + 0.6 ** 2
+    c = Vertex4D((0.4, -0.2, 0.6, u), data=_JostleAtom(), unique_id=7)
+    e = Vertex4D((0.4, -0.2, 0.6, u), data=_JostleAtom(), unique_id=8)
+    for _ in range(5):
+        c.jostle()
+        e.jostle()
+    assert (c.x, c.y, c.z) != (e.x, e.y, e.z)
+
+
+def test_identity_does_not_cost_determinism():
+    from pHinder._vendor.compGeometry import Vertex
+
+    def nudge(uid):
+        v = Vertex((1.234, 5.678, 9.012), unique_id=uid)
+        v.jostle()
+        return (v.x, v.y, v.z)
+
+    # Rebuilt in a later run, the same vertex draws the same nudge.
+    assert nudge(7) == nudge(7)
+    assert nudge(7) != nudge(8)
+    # A vertex with no id is seeded exactly as before identity was folded in.
+    assert nudge("no id") == nudge("no id")
