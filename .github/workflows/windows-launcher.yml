@@ -1,0 +1,74 @@
+name: Windows launcher
+
+# Exercises the Windows launcher's updater on a real Windows machine. The macOS
+# launcher can be tested locally; this one could not be, so it is tested here.
+#
+# conda is stubbed out: the launcher's job in this test is to get a clone onto
+# the right branch, and creating a real environment would add minutes and test
+# nothing about that. git is real, cmd.exe is real, the .bat is the shipped file.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ["launchers/**", ".github/workflows/windows-launcher.yml"]
+  push:
+    paths: ["launchers/**"]
+
+jobs:
+  unpin:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stub conda onto PATH
+        shell: cmd
+        run: |
+          mkdir "%RUNNER_TEMP%\stub"
+          > "%RUNNER_TEMP%\stub\conda.bat" (
+            echo @echo off
+            echo if "%%1"=="env" if "%%2"=="list" ^( echo phinder                  C:\stub\envs\phinder ^& exit /b 0 ^)
+            echo if "%%1"=="run" ^( echo STUB-LAUNCHED ^& exit /b 0 ^)
+            echo exit /b 0
+          )
+          echo %RUNNER_TEMP%\stub>> "%GITHUB_PATH%"
+
+      - name: Case 1 - a pinned (detached) clone is moved onto main
+        shell: cmd
+        run: |
+          git clone --quiet https://github.com/isomlab/pHinder.git "%RUNNER_TEMP%\c1" || exit /b 1
+          cd /d "%RUNNER_TEMP%\c1"
+          git checkout --quiet --detach HEAD
+          git symbolic-ref -q HEAD >nul 2>nul && ( echo NOT detached - setup failed & exit /b 1 )
+          echo --- running the launcher ---
+          call "%GITHUB_WORKSPACE%\launchers\Launch pHinder.bat"
+          echo --- after ---
+          for /f %%B in ('git rev-parse --abbrev-ref HEAD') do set AFTER=%%B
+          echo branch is now: %AFTER%
+          if not "%AFTER%"=="main" ( echo FAIL: expected main & exit /b 1 )
+          echo PASS: pinned clone was moved onto main
+
+      - name: Case 2 - a clone with local changes is left alone
+        shell: cmd
+        run: |
+          git clone --quiet https://github.com/isomlab/pHinder.git "%RUNNER_TEMP%\c2" || exit /b 1
+          cd /d "%RUNNER_TEMP%\c2"
+          git checkout --quiet --detach HEAD
+          echo dirty>> README.md
+          call "%GITHUB_WORKSPACE%\launchers\Launch pHinder.bat"
+          git symbolic-ref -q HEAD >nul 2>nul && ( echo FAIL: switched branch despite local changes & exit /b 1 )
+          echo PASS: left the dirty clone alone
+          exit /b 0
+
+      - name: Case 3 - a commit not contained in main is left alone
+        shell: cmd
+        run: |
+          git clone --quiet https://github.com/isomlab/pHinder.git "%RUNNER_TEMP%\c3" || exit /b 1
+          cd /d "%RUNNER_TEMP%\c3"
+          git config user.email t@t.t & git config user.name t
+          git checkout --quiet --detach HEAD
+          echo local>> README.md
+          git commit --quiet -am "a local commit that is not on main"
+          call "%GITHUB_WORKSPACE%\launchers\Launch pHinder.bat"
+          git symbolic-ref -q HEAD >nul 2>nul && ( echo FAIL: discarded a local commit & exit /b 1 )
+          echo PASS: left the diverged clone alone
+          exit /b 0
