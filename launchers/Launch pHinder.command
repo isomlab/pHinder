@@ -59,10 +59,34 @@ update_repo() {
     command -v git >/dev/null 2>&1 || return 0
     git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
     git -C "$REPO" remote get-url origin >/dev/null 2>&1 || return 0
-    git -C "$REPO" symbolic-ref -q HEAD >/dev/null 2>&1 || return 0   # detached
     if [ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]; then
         echo "This copy has local changes — skipping update."
         return 0
+    fi
+    # A clone made with "--branch <tag>" sits on a detached HEAD. It can never
+    # fast-forward, so it would stay on that release for ever — and silently,
+    # which is worse. Move it back onto the default branch, but only when
+    # nothing can be lost: the tree is clean (checked above) and the commit it
+    # is sitting on is already contained in that branch.
+    if ! git -C "$REPO" symbolic-ref -q HEAD >/dev/null 2>&1; then
+        local branch head
+        branch="$(git -C "$REPO" remote show origin 2>/dev/null | awk '/HEAD branch/ {print $NF}')"
+        [ -n "$branch" ] || branch="main"
+        if ! git -C "$REPO" fetch --quiet origin "$branch" 2>/dev/null; then
+            echo "  could not reach the server — launching the copy you have."
+            return 0
+        fi
+        head="$(git -C "$REPO" rev-parse HEAD 2>/dev/null)"
+        if ! git -C "$REPO" merge-base --is-ancestor "$head" "origin/$branch" 2>/dev/null; then
+            echo "This copy sits on a commit that is not part of '$branch' — leaving it alone."
+            return 0
+        fi
+        echo "This copy was pinned to a fixed release, which cannot receive updates."
+        echo "Moving it onto '$branch' so it can…"
+        if ! git -C "$REPO" checkout --quiet "$branch" 2>/dev/null; then
+            echo "  could not switch — launching the copy you have."
+            return 0
+        fi
     fi
     echo "Checking for updates…"
     local before after
